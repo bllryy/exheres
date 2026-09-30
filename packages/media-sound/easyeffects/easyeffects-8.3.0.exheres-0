@@ -1,0 +1,61 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require cmake
+
+SUMMARY="Audio effects for PipeWire applications"
+HOMEPAGE="https://wwmm.github.io/easyeffects/ https://github.com/wwmm/easyeffects"
+DOWNLOADS="https://github.com/wwmm/easyeffects/archive/refs/tags/v${PV}.tar.gz -> ${PNV}.tar.gz"
+
+LICENCES="GPL-3"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEPENDENCIES="
+    build:
+        kde-frameworks/extra-cmake-modules[>=6.10.0]
+        media-libs/ladspa-sdk
+        sys-devel/gettext
+        virtual/pkg-config
+
+    build+run:
+        dev-libs/glib:2
+        dev-libs/json
+        dev-libs/onetbb
+        kde/kirigami-addons:6
+        kde-frameworks/kcolorscheme:6[>=6.10.0]
+        kde-frameworks/kconfig:6[>=6.10.0]
+        kde-frameworks/kconfigwidgets:6[>=6.10.0]
+        kde-frameworks/kcoreaddons:6[>=6.10.0]
+        kde-frameworks/ki18n:6[>=6.10.0]
+        kde-frameworks/kiconthemes:6[>=6.10.0]
+        kde-frameworks/kirigami:6[>=6.10.0]
+        kde-frameworks/qqc2-desktop-style:6[>=6.10.0]
+        media-libs/libbs2b
+        media-libs/libebur128[>=1.2.6]
+        media-libs/libmysofa
+        media-libs/libsndfile
+        media-libs/lilv[>=0.24]
+        media-libs/rnnoise
+        media-libs/soundtouch
+        media-libs/speexdsp
+        media-libs/webrtc-audio-processing:2
+        media-libs/zita-convolver:4[>=4.0.3]
+        media/pipewire[>=1.0.6]
+        sci-libs/fftw
+        sci-libs/gsl
+        sys-libs/libportal[providers:qt6]
+        x11-libs/qtbase:6[gui]
+        x11-libs/qtdeclarative:6
+        x11-libs/qtgraphs:6
+
+    suggestion:
+        media-sound/lsp-plugins [[ description = [ Additional equalizer, compressor and delay effects ] ]]
+"
+
+CMAKE_SOURCE="${WORKBASE}/${PNV}"
+
+CMAKE_SRC_CONFIGURE_PARAMS=(
+    -DENABLE_LIBPORTAL=ON
+    -DENABLE_RNNOISE=ON
+)

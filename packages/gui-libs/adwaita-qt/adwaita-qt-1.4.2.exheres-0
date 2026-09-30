@@ -1,0 +1,21 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require cmake
+
+SUMMARY="Adwaita style for Qt6 applications"
+HOMEPAGE="https://github.com/FedoraQt/adwaita-qt"
+DOWNLOADS="https://github.com/FedoraQt/adwaita-qt/archive/${PV}/${PNV}.tar.gz"
+
+LICENCES="GPL-2 LGPL-2"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEPENDENCIES="
+    build+run:
+        x11-libs/qtbase:6[>=6.2.0][gui]
+"
+
+CMAKE_SRC_CONFIGURE_PARAMS=(
+    -DUSE_QT6=ON
+)

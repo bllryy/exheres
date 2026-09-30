@@ -1,0 +1,36 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require cmake
+
+SUMMARY="Library for reading AES SOFA files"
+HOMEPAGE="https://github.com/hoene/libmysofa"
+DOWNLOADS="https://github.com/hoene/libmysofa/archive/refs/tags/v${PV}.tar.gz -> ${PNV}.tar.gz"
+
+LICENCES="BSD-3"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEPENDENCIES="
+    build+run:
+        sys-libs/zlib
+
+    test:
+        app-arch/bzip2
+        dev-lang/node
+        dev-util/cunit
+"
+
+CMAKE_SRC_CONFIGURE_PARAMS=(
+    -DBUILD_SHARED_LIBS=ON
+    -DBUILD_STATIC_LIBS=OFF
+)
+
+CMAKE_SRC_CONFIGURE_TESTS=(
+    '-DBUILD_TESTS=ON -DBUILD_TESTS=OFF'
+)
+
+src_install() {
+    cmake_src_install
+    edo rm -r "${IMAGE}/usr/share/libmysofa"
+}

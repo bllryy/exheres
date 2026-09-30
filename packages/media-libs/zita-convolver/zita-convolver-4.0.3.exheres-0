@@ -1,0 +1,33 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+SUMMARY="Real-time convolution matrix library"
+HOMEPAGE="https://kokkinizita.linuxaudio.org/linuxaudio/"
+DOWNLOADS="https://kokkinizita.linuxaudio.org/linuxaudio/downloads/${PNV}.tar.bz2"
+
+LICENCES="GPL-3+"
+SLOT="4"
+PLATFORMS="~amd64"
+
+DEPENDENCIES="
+    build+run:
+        sci-libs/fftw
+"
+
+DEFAULT_SRC_PREPARE_PATCHES=(
+    "${FILES}/${PNV}-makefile.patch"
+)
+
+src_compile() {
+    emake -C source CXX="${CXX}"
+}
+
+src_install() {
+    emake -C source install \
+        CXX="${CXX}" \
+        DESTDIR="${IMAGE}" \
+        PREFIX="/usr/$(exhost --target)" \
+        LIBDIR="/usr/$(exhost --target)/lib"
+
+    emagicdocs
+}

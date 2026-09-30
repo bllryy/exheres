@@ -1,0 +1,22 @@
+--- a/CMakeLists.txt
++++ b/CMakeLists.txt
+@@ -24,7 +24,7 @@
+ 
+ add_definitions(-DQT_DISABLE_DEPRECATED_BEFORE=0x060000 -DUSE_WIDGETS)
+ 
+-find_package(Qt6 REQUIRED COMPONENTS BuildInternals Core Widgets OPTIONAL_COMPONENTS LinguistTools)
++find_package(Qt6 REQUIRED COMPONENTS BuildInternals Core Widgets GuiPrivate WidgetsPrivate OPTIONAL_COMPONENTS LinguistTools)
+ 
+ get_target_property(QT_QTPATHS_EXECUTABLE Qt6::qtpaths IMPORTED_LOCATION)
+ 
+--- a/src/qt6ct-qtplugin/qt6ctplatformtheme.h
++++ b/src/qt6ct-qtplugin/qt6ctplatformtheme.h
+@@ -30,7 +30,7 @@
+ #define QT6CTPLATFORMTHEME_H
+ 
+ #include <qpa/qplatformtheme.h>
+-#include <private/qgenericunixthemes_p.h>
++#include <private/qgenericunixtheme_p.h>
+ #include <QObject>
+ #include <QFont>
+ #include <QPalette>
