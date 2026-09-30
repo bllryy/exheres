@@ -22,15 +22,29 @@ DEPENDENCIES="
         dev-libs/glib
         media-libs/fontconfig
         media-libs/freetype
+        x11-libs/harfbuzz
         x11-misc/xcur2png
         x11-libs/cairo
         x11-libs/gdk-pixbuf
         x11-libs/gtk+:3
-        x11-libs/harfbuzz
         x11-libs/pango
 "
 
+src_prepare() {
+    default
+
+    export GOMODCACHE="${WORKBASE}/gomodcache"
+    export GOCACHE="${WORKBASE}/gocache"
+
+    esandbox disable_net
+    edo go mod download
+    esandbox enable_net
+}
+
 src_compile() {
+    export GOMODCACHE="${WORKBASE}/gomodcache"
+    export GOCACHE="${WORKBASE}/gocache"
+
     emake build
 }
 
