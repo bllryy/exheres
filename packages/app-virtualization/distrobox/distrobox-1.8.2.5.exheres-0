@@ -1,0 +1,54 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+SUMMARY="Use any Linux distribution inside your terminal"
+HOMEPAGE="
+    https://distrobox.it/
+    https://github.com/89luca89/distrobox
+"
+
+DOWNLOADS="
+    https://github.com/89luca89/distrobox/archive/refs/tags/${PV}.tar.gz
+        -> ${PNV}.tar.gz
+"
+
+LICENCES="GPL-3"
+SLOT="0"
+PLATFORMS="~amd64"
+
+MYOPTIONS="
+    gui [[
+        description = [ Install Distrobox's desktop icons ]
+    ]]
+"
+
+DEPENDENCIES="
+    run:
+        || (
+            app-virtualization/podman
+            app-virtualization/docker-cli
+        )
+"
+
+src_install() {
+    dobin distrobox*
+
+    doman man/man1/*
+
+    insinto /usr/share/bash-completion/completions
+    doins completions/bash/*
+
+    insinto /usr/share/zsh/site-functions
+    doins completions/zsh/*
+
+    if option gui; then
+        insinto /usr/share/icons/hicolor/scalable/apps
+        doins icons/terminal-distrobox-icon.svg
+
+        local size
+        for size in 16 22 24 32 36 48 64 72 96 128 256; do
+            insinto "/usr/share/icons/hicolor/${size}x${size}/apps"
+            doins "icons/hicolor/${size}x${size}/apps/terminal-distrobox-icon.png"
+        done
+    fi
+}
