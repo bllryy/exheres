@@ -1,0 +1,35 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require autotools [ supported_autoconf=[ 2.7 ] supported_automake=[ 1.18 ] ] flag-o-matic
+
+SUMMARY="Convert X cursors to PNG images"
+HOMEPAGE="
+    https://github.com/eworm-de/xcur2png
+"
+
+DOWNLOADS="
+    https://github.com/eworm-de/xcur2png/releases/download/${PV}/${PNV}.tar.gz
+"
+
+LICENCES="GPL-3"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEPENDENCIES="
+    build:
+        dev-util/pkgconf
+    build+run:
+        media-libs/libpng
+        x11-libs/libXcursor
+"
+
+src_prepare() {
+    default
+    eautoreconf
+}
+
+src_configure() {
+    append-cflags "-std=gnu89"
+    default
+}
