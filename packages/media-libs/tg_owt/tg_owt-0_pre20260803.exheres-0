@@ -1,0 +1,88 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require cmake flag-o-matic
+
+TG_OWT_COMMIT="26068e29bfa8d74a9dc9c8f7f94172fafbc262b8"
+LIBYUV_COMMIT="04821d1e7d60845525e8db55c7bcd41ef5be9406"
+CRC32C_COMMIT="21fc8ef30415a635e7351ffa0e5d5367943d4a94"
+ABSEIL_COMMIT="d7aaad83b488fd62bd51c81ecf16cd938532cc0a"
+
+SUMMARY="WebRTC build for Telegram"
+HOMEPAGE="https://github.com/desktop-app/tg_owt"
+DOWNLOADS="
+    https://github.com/desktop-app/tg_owt/archive/${TG_OWT_COMMIT}.tar.gz -> ${PNV}.tar.gz
+    https://gitlab.com/chromiumsrc/libyuv/-/archive/${LIBYUV_COMMIT}/libyuv-${LIBYUV_COMMIT}.tar.bz2
+    https://github.com/google/crc32c/archive/${CRC32C_COMMIT}.tar.gz -> crc32c-${CRC32C_COMMIT}.tar.gz
+    https://github.com/abseil/abseil-cpp/archive/${ABSEIL_COMMIT}.tar.gz -> abseil-cpp-${ABSEIL_COMMIT}.tar.gz
+"
+
+LICENCES="Apache-2.0 BSD-3"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEPENDENCIES="
+    build:
+        virtual/pkg-config
+        x11-proto/xorgproto
+
+    build+run:
+        dev-libs/glib:2
+        dev-libs/libglvnd
+        dev-libs/openssl
+        media-libs/libjpeg-turbo
+        media-libs/libvpx[>=1.10]
+        media-libs/openh264
+        media-libs/opus
+        media/ffmpeg
+        media/pipewire
+        net-libs/libsrtp
+        x11-dri/libdrm
+        x11-dri/mesa
+        x11-libs/libX11
+        x11-libs/libXcomposite
+        x11-libs/libXdamage
+        x11-libs/libXext
+        x11-libs/libXfixes
+        x11-libs/libXrandr
+        x11-libs/libXrender
+        x11-libs/libXtst
+"
+
+CMAKE_SOURCE="${WORKBASE}/tg_owt-${TG_OWT_COMMIT}"
+
+DEFAULT_SRC_PREPARE_PATCHES=(
+    "${FILES}/${PNV}-abseil.patch"
+)
+
+CMAKE_SRC_CONFIGURE_PARAMS=(
+    -DCMAKE_DISABLE_FIND_PACKAGE_absl=ON
+    -DCMAKE_CXX_STANDARD=20
+    -DCMAKE_SHARED_LINKER_FLAGS=-Wl,-z,defs
+    -DBUILD_SHARED_LIBS=ON
+    -DTG_OWT_USE_X11=ON
+    -DTG_OWT_USE_PIPEWIRE=ON
+    -DTG_OWT_DLOPEN_PIPEWIRE=ON
+    -DTG_OWT_BUILD_AUDIO_BACKENDS=OFF
+)
+
+src_prepare() {
+    edo rmdir "${CMAKE_SOURCE}/src/third_party/libyuv"
+    edo mv "${WORKBASE}/libyuv-${LIBYUV_COMMIT}" "${CMAKE_SOURCE}/src/third_party/libyuv"
+    edo rmdir "${CMAKE_SOURCE}/src/third_party/crc32c/src"
+    edo mv "${WORKBASE}/crc32c-${CRC32C_COMMIT}" "${CMAKE_SOURCE}/src/third_party/crc32c/src"
+    edo rmdir "${CMAKE_SOURCE}/src/third_party/abseil-cpp"
+    edo mv "${WORKBASE}/abseil-cpp-${ABSEIL_COMMIT}" "${CMAKE_SOURCE}/src/third_party/abseil-cpp"
+    edo cd "${CMAKE_SOURCE}"
+    default
+}
+
+src_configure() {
+    append-cxxflags -DNDEBUG
+    cmake_src_configure
+}
+
+src_install() {
+    cmake_src_install
+    edo find "${IMAGE}/usr/$(exhost --target)/include/tg_owt" -depth -type d -empty -delete
+}

@@ -1,0 +1,33 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require cmake
+
+TDLIB_COMMIT="51743dfd01dff6179e2d8f7095729caa4e2222e9"
+
+SUMMARY="End-to-end encryption library from TDLib"
+HOMEPAGE="https://github.com/tdlib/td"
+DOWNLOADS="https://github.com/tdlib/td/archive/${TDLIB_COMMIT}.tar.gz -> ${PNV}.tar.gz"
+
+LICENCES="Boost-1.0"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEPENDENCIES="
+    build:
+        dev-util/gperf
+
+    build+run:
+        dev-libs/openssl
+        sys-libs/zlib
+"
+
+CMAKE_SOURCE="${WORKBASE}/td-${TDLIB_COMMIT}"
+
+CMAKE_SRC_CONFIGURE_PARAMS=(
+    -DTD_E2E_ONLY=ON
+    -DTD_INSTALL_STATIC_LIBRARIES=ON
+    -DTD_INSTALL_SHARED_LIBRARIES=OFF
+    -DTD_ENABLE_LTO=OFF
+    -DBUILD_TESTING=OFF
+)

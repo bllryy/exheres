@@ -1,0 +1,19 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require cmake
+
+SUMMARY="WHATWG-compliant URL parser written in C++"
+HOMEPAGE="https://github.com/ada-url/ada"
+DOWNLOADS="https://github.com/ada-url/ada/archive/refs/tags/v${PV}.tar.gz -> ${PNV}.tar.gz"
+
+LICENCES="Apache-2.0 MIT"
+SLOT="0"
+PLATFORMS="~amd64"
+
+CMAKE_SRC_CONFIGURE_PARAMS=(
+    -DBUILD_SHARED_LIBS=ON
+    -DADA_TESTING=OFF
+    -DADA_TOOLS=OFF
+    -DADA_INCLUDE_URL_PATTERN=OFF
+)

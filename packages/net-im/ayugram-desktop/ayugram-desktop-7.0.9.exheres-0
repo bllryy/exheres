@@ -1,0 +1,69 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require cmake
+require flag-o-matic
+
+SUMMARY="Telegram desktop client with customization and Ghost mode"
+HOMEPAGE="https://github.com/AyuGram/AyuGramDesktop"
+DOWNLOADS="https://github.com/AyuGram/AyuGramDesktop/releases/download/v${PV}/AyuGramDesktop-${PV}-full.tar.gz -> ${PNV}-full.tar.gz"
+
+LICENCES="BSD-3 GPL-3+ LGPL-2+"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEPENDENCIES="
+    build:
+        dev-lang/python:*[>=3]
+        dev-libs/fmt
+        gnome-desktop/gobject-introspection
+        virtual/pkg-config
+        x11-libs/qtshadertools:6
+
+    build+run:
+        dev-cpp/ada
+        dev-libs/boost
+        dev-libs/glib:2
+        dev-libs/libfido2
+        dev-libs/openssl
+        dev-libs/protobuf[>=21.12]
+        gnome-bindings/glibmm:2.68[>=2.77]
+        media-libs/libjpeg-turbo
+        media-libs/libvpx
+        media-libs/openal
+        media-libs/openh264
+        media-libs/opus
+        media-libs/rnnoise
+        media-libs/tg_owt
+        media/ffmpeg[>=6]
+        net-libs/tde2e
+        sys-libs/zlib
+        x11-libs/qtbase:6[>=6.5][gui]
+        x11-libs/qtsvg:6[>=6.5]
+
+    run:
+        x11-libs/qtimageformats:6[webp]
+"
+
+CMAKE_SOURCE="${WORKBASE}/AyuGramDesktop-${PV}-full"
+
+CMAKE_SRC_CONFIGURE_PARAMS=(
+    -DQT_VERSION_MAJOR=6
+    -DDESKTOP_APP_USE_PACKAGED=ON
+    -DDESKTOP_APP_DISABLE_AUTOUPDATE=ON
+    -DDESKTOP_APP_DISABLE_CRASH_REPORTS=ON
+    -DDESKTOP_APP_DISABLE_QT_PLUGINS=ON
+    -DQSB_EXECUTABLE=/usr/$(exhost --target)/lib/qt6/bin/qsb
+    -DTDESKTOP_API_ID=611335
+    -DTDESKTOP_API_HASH=d524b414d21f4d37f08684c1df41ac9c
+)
+
+src_configure() {
+    append-cxxflags -DNDEBUG
+    cmake_src_configure
+}
+
+src_install() {
+    cmake_src_install
+    dodoc "${CMAKE_SOURCE}/LICENSE" "${CMAKE_SOURCE}/LEGAL"
+}
