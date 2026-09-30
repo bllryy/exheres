@@ -1,0 +1,35 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require cmake
+
+NANOSVG_COMMIT="9da543e8329fdd81b64eb48742d8ccb09377aed1"
+
+SUMMARY="Simple stupid SVG parser"
+HOMEPAGE="https://github.com/memononen/nanosvg"
+
+DOWNLOADS="
+    https://github.com/memononen/nanosvg/archive/${NANOSVG_COMMIT}.tar.gz
+        -> ${PNV}.tar.gz
+"
+
+LICENCES="ZLIB"
+SLOT="0"
+PLATFORMS="~amd64"
+
+CMAKE_SOURCE="${WORKBASE}/nanosvg-${NANOSVG_COMMIT}"
+
+DEFAULT_SRC_PREPARE_PATCHES=(
+    "${FILES}/nanosvg.patch"
+)
+
+CMAKE_SRC_CONFIGURE_PARAMS=(
+    -DBUILD_SHARED_LIBS=ON
+)
+
+src_install() {
+    cmake_src_install
+
+    insinto /usr/share/licenses/${PN}
+    newins "${CMAKE_SOURCE}/LICENSE.txt" LICENSE
+}
