@@ -1,0 +1,66 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require cmake
+
+SUMMARY="Powerful yet simple to use screenshot software"
+HOMEPAGE="https://flameshot.org https://github.com/flameshot-org/flameshot"
+
+DOWNLOADS="
+    https://github.com/flameshot-org/flameshot/archive/refs/tags/v${PV}.tar.gz
+        -> ${PNV}.tar.gz
+"
+
+LICENCES="
+    Apache-2.0
+    FAL-1.3
+    GPL-3+
+"
+
+SLOT="0"
+PLATFORMS="~amd64"
+
+MYOPTIONS="
+    imgur [[
+        description = [ Enable Imgur uploader ]
+    ]]
+
+    wayland [[
+        description = [ Enable Wayland clipboard support ]
+    ]]
+"
+
+DEPENDENCIES="
+    build:
+        x11-libs/qttools:6[linguist]
+
+    build+run:
+        dev-libs/kdsingleapplication
+        gui-libs/qt-color-widgets
+        sys-apps/dbus
+        x11-libs/qtbase:6[gui]
+        x11-libs/qtsvg:6
+
+        wayland? (
+            kde-frameworks/kguiaddons:6[wayland]
+        )
+"
+
+src_configure() {
+    CMAKE_SRC_CONFIGURE_PARAMS=(
+        -DCMAKE_DISABLE_FIND_PACKAGE_Git=ON
+        -DDISABLE_UPDATE_CHECKER=ON
+        -DENABLE_CACHE=0
+        -DENABLE_IMGUR="$(option imgur ON OFF)"
+        -DFETCHCONTENT_TRY_FIND_PACKAGE_MODE=ALWAYS
+        -DUSE_BUNDLED_KDSINGLEAPPLICATION=OFF
+        -DUSE_KDSINGLEAPPLICATION=ON
+        -DUSE_WAYLAND_CLIPBOARD="$(option wayland ON OFF)"
+    )
+
+    cmake_src_configure
+}
+
+src_install() {
+    cmake_src_install
+}

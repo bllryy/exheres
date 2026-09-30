@@ -1,0 +1,43 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require cmake
+
+SUMMARY="Qt (C++) widgets to manage color inputs"
+HOMEPAGE="https://gitlab.com/mattbas/Qt-Color-Widgets"
+
+DOWNLOADS="
+    https://gitlab.com/mattbas/Qt-Color-Widgets/-/archive/${PV}/Qt-Color-Widgets-${PV}.tar.bz2
+        -> ${PNV}.tar.bz2
+"
+
+LICENCES="LGPL-3+"
+SLOT="0"
+PLATFORMS="~amd64"
+
+MYOPTIONS="
+    designer [[
+        description = [ Build the Qt Designer plugin ]
+    ]]
+"
+
+DEPENDENCIES="
+    build+run:
+        x11-libs/qtbase:6[gui]
+
+    designer? (
+        x11-libs/qttools:6[designer]
+    )
+"
+
+CMAKE_SOURCE="${WORKBASE}/Qt-Color-Widgets-${PV}"
+
+src_configure() {
+    CMAKE_SRC_CONFIGURE_PARAMS=(
+        -DQT_VERSION_MAJOR=6
+        -DBUILD_SHARED_LIBS=ON
+        -DQTCOLORWIDGETS_DESIGNER_PLUGIN="$(option designer ON OFF)"
+    )
+
+    cmake_src_configure
+}
