@@ -4,10 +4,7 @@
 SUMMARY="Mullvad VPN desktop client and daemon"
 HOMEPAGE="https://mullvad.net/"
 
-DOWNLOADS="
-    https://repository.mullvad.net/rpm/stable/mullvad-vpn-${PV}.x86_64.rpm
-        -> ${PNV}.rpm
-"
+DOWNLOADS="https://cdn.mullvad.net/app/desktop/releases/${PV}/MullvadVPN-${PV}_amd64.deb -> ${PNV}.deb"
 
 LICENCES="GPL-3"
 SLOT="0"
@@ -15,7 +12,7 @@ PLATFORMS="~amd64"
 
 DEPENDENCIES="
     build:
-        app-arch/rpm2targz
+        app-arch/xz
 
     run:
         dev-libs/at-spi2-core
@@ -25,19 +22,26 @@ DEPENDENCIES="
         sys-apps/dbus
 "
 
+WORK="${WORKBASE}"
+
 pkg_setup() {
     exdirectory --allow /opt
 }
 
 src_unpack() {
-    edo mkdir -p "${WORK}"
+    local checksum
+    checksum=$(sha256sum "${FETCHEDDIR}/${PNV}.deb") || die "Cannot checksum Mullvad archive"
+    [[ ${checksum%% *} == aa6bd00452588597f50e8ca2f02bb91e9c295c4f01b0ae907354552e7428e7ab ]] ||
+        die "Mullvad archive changed; check version before updating checksum"
 
-    edo rpm2targz "${FETCHEDDIR}/${PNV}.rpm"
-    edo tar -xzf "${WORKBASE}/${PNV}.tar.gz" -C "${WORK}"
+    default
+    unpack ./data.tar.xz
 }
 
 src_install() {
-    edo cp -rT "${WORK}" "${IMAGE}"
+    edo mkdir -p "${IMAGE}/opt" "${IMAGE}/usr"
+    edo cp -rT "${WORK}/opt" "${IMAGE}/opt"
+    edo cp -rT "${WORK}/usr" "${IMAGE}/usr"
 
     edo mkdir -p "${IMAGE}/usr/${CHOST}"
     edo mv "${IMAGE}/usr/bin" "${IMAGE}/usr/${CHOST}/"
@@ -45,4 +49,14 @@ src_install() {
     if [[ -d "${IMAGE}/usr/lib" ]]; then
         edo mv "${IMAGE}/usr/lib" "${IMAGE}/usr/${CHOST}/"
     fi
+
+    local helper="${IMAGE}/usr/${CHOST}/bin/mullvad-exclude"
+    [[ -f ${helper} && ! -L ${helper} ]] || die "Mullvad exclusion helper is missing or not a regular file"
+    edo chown root:root "${helper}"
+    edo chmod 4755 "${helper}"
+
+    edo mkdir -p "${IMAGE}/usr/share/zsh/site-functions"
+    edo mv "${IMAGE}/usr/local/share/zsh/site-functions/_mullvad" "${IMAGE}/usr/share/zsh/site-functions/"
+    edo rmdir "${IMAGE}/usr/local/share/zsh/site-functions" "${IMAGE}/usr/local/share/zsh" \
+        "${IMAGE}/usr/local/share" "${IMAGE}/usr/local"
 }
