@@ -1,0 +1,76 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require freedesktop-desktop freedesktop-mime gtk-icon-cache
+
+SUMMARY="End-to-end encrypted two-factor authenticator"
+HOMEPAGE="https://ente.io/auth/ https://github.com/ente-io/ente"
+DOWNLOADS="https://github.com/ente-io/ente/releases/download/auth-v${PV}/ente-auth-v${PV}-x86_64.AppImage -> ${PNV}.AppImage"
+
+LICENCES="AGPL-3+"
+SLOT="0"
+PLATFORMS="~amd64"
+RESTRICT="mirror strip test"
+
+DEPENDENCIES="
+    build:
+        sys-fs/squashfs-tools
+
+    run:
+        dev-libs/libayatana-appindicator
+        dev-libs/libepoxy
+        dev-libs/libsecret:1
+        dev-libs/openssl:3
+        net-misc/curl
+        sys-libs/zlib
+        x11-libs/gtk+:3
+"
+
+WORK="${WORKBASE}/squashfs-root"
+
+pkg_setup() {
+    exdirectory --allow /opt
+}
+
+src_unpack() {
+    local checksum
+    checksum=$(sha256sum "${FETCHEDDIR}/${PNV}.AppImage") || die "Cannot checksum Ente Auth AppImage"
+    [[ ${checksum%% *} == c85f4a9a75e8b97a54f99a7f6db4307275b42f6465d76515354fe42231e12b85 ]] ||
+        die "Ente Auth AppImage changed; check version before updating checksum"
+
+    edo unsquashfs -offset 944632 -dest "${WORK}" "${FETCHEDDIR}/${PNV}.AppImage"
+}
+
+src_install() {
+    edo mkdir -p "${IMAGE}/opt/enteauth"
+    edo cp -a "${WORK}/data" "${WORK}/lib" "${WORK}/enteauth" "${IMAGE}/opt/enteauth/"
+    edo rm "${IMAGE}/opt/enteauth/lib/libdartjni.so"
+
+    exeinto /usr/$(exhost --target)/bin
+    newexe "${FILES}/enteauth-launcher" enteauth
+
+    insinto /usr/share/applications
+    edo sed 's@^Exec=.*@Exec=enteauth %u@' "${WORK}/enteauth.desktop" > "${WORKBASE}/enteauth.desktop" || die
+    doins "${WORKBASE}/enteauth.desktop"
+
+    insinto /usr/share/icons
+    doins -r "${WORK}/usr/share/icons/hicolor"
+
+    insinto /usr/share/pixmaps
+    doins "${WORK}/enteauth.png"
+
+    insinto /usr/share/metainfo
+    doins "${WORK}/usr/share/metainfo/ente_auth.appdata.xml"
+}
+
+pkg_postinst() {
+    freedesktop-mime_pkg_postinst
+    freedesktop-desktop_pkg_postinst
+    gtk-icon-cache_pkg_postinst
+}
+
+pkg_postrm() {
+    freedesktop-mime_pkg_postrm
+    freedesktop-desktop_pkg_postrm
+    gtk-icon-cache_pkg_postrm
+}
