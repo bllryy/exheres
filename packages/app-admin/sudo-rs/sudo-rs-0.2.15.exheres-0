@@ -1,0 +1,60 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require cargo [ rust_minimum_version=1.85 ] github [ user=trifectatechfoundation tag=v${PV} ] pam
+
+SUMMARY="Memory-safe implementation of sudo"
+
+LICENCES="|| ( Apache-2.0 MIT )"
+SLOT="0"
+PLATFORMS="~amd64 ~armv8"
+MYOPTIONS="native-names"
+
+DEPENDENCIES+="
+    build+run:
+        sys-libs/pam
+
+    run:
+        native-names? ( !app-admin/sudo )
+"
+
+CARGO_SRC_COMPILE_PARAMS=( --bin sudo --bin visudo )
+CARGO_SRC_INSTALL_PARAMS=( --bin sudo --bin visudo )
+
+src_prepare() {
+    default
+    if ! option native-names; then
+        expatch "${FILES}/${PNV}-pam-service.patch"
+    fi
+}
+
+src_install() {
+    local suffix= name= bin="${IMAGE}/usr/$(exhost --target)/bin"
+
+    cargo_src_install
+    if ! option native-names; then
+        suffix=-rs
+        edo mv "${bin}/sudo" "${bin}/sudo-rs"
+        edo mv "${bin}/visudo" "${bin}/visudo-rs"
+    fi
+    edo chmod 4755 "${bin}/sudo${suffix}"
+    dosym sudo${suffix} /usr/$(exhost --target)/bin/sudoedit${suffix}
+
+    edo sed -i 's@/etc/sudoers\\f@/etc/sudoers-rs\\f@g' docs/man/sudo.8.man docs/man/visudo.8.man
+    edo sed -i '8s@/etc/sudoers@/etc/sudoers-rs@' docs/man/sudoers.5.man
+
+    newman docs/man/sudo.8.man sudo${suffix}.8
+    newman docs/man/visudo.8.man visudo${suffix}.8
+    newman docs/man/sudoers.5.man sudoers${suffix}.5
+    dosym sudo${suffix}.8 /usr/share/man/man8/sudoedit${suffix}.8
+
+    dodoc SECURITY.md
+
+    keepdir /etc/sudoers.d
+    name=sudo${suffix}
+    pamd_mimic_system "${name}" auth auth account password session
+
+    insinto /etc
+    insopts -m 0440
+    doins "${FILES}/sudoers-rs"
+}

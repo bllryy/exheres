@@ -1,0 +1,11 @@
+--- a/src/sudo/pam.rs
++++ b/src/sudo/pam.rs
+@@ -40,7 +40,7 @@
+ ) -> PamResult<PamContext> {
+     let service_name = match launch {
+         LaunchType::Login if cfg!(feature = "pam-login") => "sudo-i",
+-        LaunchType::Login | LaunchType::Shell | LaunchType::Direct => "sudo",
++        LaunchType::Login | LaunchType::Shell | LaunchType::Direct => "sudo-rs",
+     };
+     let mut pam = PamContext::new_cli(
+         "sudo",

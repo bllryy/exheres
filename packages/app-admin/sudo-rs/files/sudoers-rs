@@ -1,0 +1,11 @@
+Defaults secure_path="/usr/local/bin:/usr/local/sbin:/usr/host/bin"
+
+root ALL=(ALL:ALL) ALL
+
+# Uncomment to allow members of wheel to use sudo-rs.
+# %wheel ALL=(ALL:ALL) ALL
+
+# Uncomment to allow members of sudo to use sudo-rs.
+# %sudo ALL=(ALL:ALL) ALL
+
+@includedir /etc/sudoers.d
