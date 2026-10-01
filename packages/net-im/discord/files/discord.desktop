@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Discord
+Comment=Voice, video, and text chat
+Exec=discord --url -- %u
+Icon=discord
+Type=Application
+Categories=Network;InstantMessaging;
+StartupWMClass=discord
+MimeType=x-scheme-handler/discord;
