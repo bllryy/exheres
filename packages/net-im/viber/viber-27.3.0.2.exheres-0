@@ -39,6 +39,7 @@ DEPENDENCIES="
         media-sound/pulseaudio
         net-libs/libssh
         sys-apps/dbus
+        sys-libs/libgomp
         sys-libs/libinput
         sys-libs/zlib
         sys-libs/wayland
