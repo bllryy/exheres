@@ -1,0 +1,98 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require wxwidgets freedesktop-desktop freedesktop-mime gtk-icon-cache
+
+SUMMARY="Disk encryption based on TrueCrypt"
+HOMEPAGE="https://veracrypt.io/en/Home.html"
+DOWNLOADS="https://github.com/veracrypt/VeraCrypt/archive/refs/tags/VeraCrypt_${PV}.tar.gz -> ${PNV}.tar.gz"
+
+LICENCES="Apache-2.0 BSD-3 RSA truecrypt-3.0"
+SLOT="0"
+PLATFORMS="~amd64"
+RESTRICT="mirror"
+MYOPTIONS="doc gui"
+
+DEPENDENCIES="
+    build:
+        dev-lang/yasm
+        virtual/pkg-config
+
+    build+run:
+        sys-apps/pcsc-lite
+        sys-fs/fuse:3
+        sys-fs/lvm2
+
+    run:
+        app-admin/sudo
+"
+
+WORK="${WORKBASE}/VeraCrypt-VeraCrypt_${PV}/src"
+
+DEFAULT_SRC_PREPARE_PATCHES=(
+    "${FILES}/${PNV}-fix-release-date.patch"
+    "${FILES}/${PNV}-argon2-avx2-avx512f.patch"
+    "${FILES}/${PNV}-fix-nosse2.patch"
+)
+
+src_configure() {
+    MAKE_ARGS=(
+        NOSTRIP=1 NOTEST=1 VERBOSE=1 WITHFUSE3=1
+        AR="${AR}" CC="${CC}" CXX="${CXX}" RANLIB="${RANLIB}"
+        TC_EXTRA_CFLAGS="${CFLAGS}" TC_EXTRA_CXXFLAGS="${CXXFLAGS}"
+        TC_EXTRA_LFLAGS="${LDFLAGS}" WX_CONFIG="${WX_CONFIG}"
+    )
+    if ! option gui; then
+        MAKE_ARGS+=( NOGUI=1 )
+    fi
+}
+
+src_compile() {
+    local gui=0
+    if option gui; then
+        gui=1
+    fi
+
+    emake "${MAKE_ARGS[@]}"
+    emake "${MAKE_ARGS[@]}" DESTDIR="${WORK}/staging" \
+        INSTALL_UNINSTALLER=0 INSTALL_LICENSE=0 INSTALL_DOCS=0 \
+        INSTALL_LANGUAGES=0 INSTALL_APPIMAGE_FILES=0 \
+        INSTALL_MOUNT_HELPER_DIR="$(exhost --target)/bin" \
+        INSTALL_DESKTOP=${gui} INSTALL_MIME=${gui} INSTALL_ICONS=${gui} install
+}
+
+src_install() {
+    edo cp -R "${WORK}/staging/usr" "${IMAGE}/"
+
+    dodir /usr/$(exhost --target)/bin
+    edo mv "${IMAGE}/usr/bin/veracrypt" "${IMAGE}/usr/$(exhost --target)/bin/veracrypt"
+    edo rmdir "${IMAGE}/usr/bin"
+
+    if option gui; then
+        edo sed -i 's|Exec=/usr/bin/veracrypt|Exec=veracrypt|' \
+            "${IMAGE}/usr/share/applications/veracrypt.desktop"
+    fi
+
+    dodoc "${WORK}/../License.txt" "${WORK}/Readme.txt"
+    if option doc; then
+        edo mkdir -p "${IMAGE}/usr/share/doc/${PNV}"
+        edo cp -r "${WORK}/../doc/html" "${WORK}/../doc/EFI-DCS" "${IMAGE}/usr/share/doc/${PNV}/"
+    fi
+}
+
+pkg_postinst() {
+    if option gui; then
+        freedesktop-mime_pkg_postinst
+        freedesktop-desktop_pkg_postinst
+        gtk-icon-cache_pkg_postinst
+    fi
+    ewarn "VeraCrypt's TrueCrypt-derived license restricts redistribution of modified versions."
+}
+
+pkg_postrm() {
+    if option gui; then
+        freedesktop-mime_pkg_postrm
+        freedesktop-desktop_pkg_postrm
+        gtk-icon-cache_pkg_postrm
+    fi
+}
