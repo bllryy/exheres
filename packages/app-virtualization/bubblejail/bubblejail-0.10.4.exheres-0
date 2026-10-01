@@ -1,0 +1,73 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require python [ blacklist="2 3.9 3.10" multibuild=false ] meson [ meson_minimum_version=1.3.0 ] gtk-icon-cache
+
+SUMMARY="Bubblewrap-based sandboxing utility"
+HOMEPAGE="https://github.com/igo95862/bubblejail"
+DOWNLOADS="${HOMEPAGE}/releases/download/${PV}/${PNV}.tar.xz"
+
+LICENCES="GPL-3+ MIT MPL-2.0"
+SLOT="0"
+PLATFORMS="~amd64"
+MYOPTIONS="doc gui bash-completion fish-completion"
+
+DEPENDENCIES="
+    build:
+        dev-python/Jinja2[python_abis:*(-)?]
+        doc? ( app-doc/scdoc )
+
+    run:
+        dev-python/cattrs[python_abis:*(-)?]
+        dev-python/pyxdg[python_abis:*(-)?]
+        dev-python/tomli-w[python_abis:*(-)?]
+        sys-apps/bubblewrap[>=0.5.0]
+        sys-apps/xdg-dbus-proxy
+        sys-libs/libseccomp
+        gui? (
+            dev-python/PyQt6[python_abis:*(-)?]
+            x11-themes/hicolor-icon-theme
+        )
+"
+
+MESON_SRC_CONFIGURE_PARAMS=( -Duse-vendored-python-lxns=enabled )
+MESON_SRC_CONFIGURE_OPTION_SWITCHES=( 'doc man' )
+
+src_prepare() {
+    meson_src_prepare
+    edo sed -i "1s@/usr/bin/python3@/usr/$(exhost --target)/bin/python$(python_get_abi)@" \
+        templates/bubblejail_launch_base.py.jinja
+}
+
+src_install() {
+    meson_src_install
+
+    if ! option gui; then
+        edo rm -f "${IMAGE}/usr/$(exhost --target)/bin/bubblejail-config" \
+            "${IMAGE}/usr/share/applications/bubblejail-config.desktop" \
+            "${IMAGE}/usr/share/icons/hicolor/128x128/apps/bubblejail-config.png" \
+            "${IMAGE}/usr/share/icons/hicolor/scalable/apps/bubblejail-config.svg"
+    fi
+    if ! option bash-completion; then
+        edo rm -f "${IMAGE}/usr/share/bash-completion/completions/bubblejail"
+    fi
+    if ! option fish-completion; then
+        edo rm -f "${IMAGE}/usr/share/fish/vendor_completions.d/bubblejail.fish"
+    fi
+
+    edo find "${IMAGE}/usr/share" -depth -type d -empty -delete
+    keepdir /etc/bubblejail/profiles
+    python_bytecompile
+}
+
+pkg_postinst() {
+    if option gui; then
+        gtk-icon-cache_pkg_postinst
+    fi
+}
+
+pkg_postrm() {
+    if option gui; then
+        gtk-icon-cache_pkg_postrm
+    fi
+}
