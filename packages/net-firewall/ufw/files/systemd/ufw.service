@@ -1,0 +1,18 @@
+[Unit]
+Description=Uncomplicated firewall
+Documentation=man:ufw(8)
+DefaultDependencies=no
+Before=network-pre.target sysinit.target
+Wants=network-pre.target
+After=systemd-sysctl.service
+Conflicts=iptables.service ip6tables.service nftables.service firewalld.service
+ConditionPathExists=/etc/ufw/ufw.conf
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/usr/share/ufw/ufw-init start
+ExecStop=/usr/share/ufw/ufw-init stop
+
+[Install]
+WantedBy=multi-user.target

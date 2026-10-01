@@ -1,0 +1,57 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require python [ blacklist="2 3.9 3.10" multibuild=false ] systemd-service
+
+SUMMARY="Uncomplicated firewall frontend for iptables"
+HOMEPAGE="https://launchpad.net/ufw"
+DOWNLOADS="${HOMEPAGE}/${PV%.*}/${PV}/+download/${PNV}.tar.gz"
+
+LICENCES="GPL-3"
+SLOT="0"
+PLATFORMS="~amd64"
+RESTRICT="test"
+
+DEPENDENCIES="
+    build:
+        dev-python/setuptools[python_abis:*(-)?]
+        sys-devel/gettext
+
+    run:
+        net-firewall/iptables
+"
+
+DEFAULT_SRC_PREPARE_PATCHES=(
+    "${FILES}/${PN}-0.36.1-move-path.patch"
+    "${FILES}/${PN}-0.36.1-dont-check-iptables.patch"
+    "${FILES}/${PN}-0.36.1-shebang.patch"
+    "${FILES}/${PN}-0.36-bash-completion.patch"
+    "${FILES}/${PN}-0.36.1-distutils.patch"
+)
+
+src_compile() {
+    edo "${PYTHON}" -B setup.py install --prefix=/usr \
+        --root="${WORK}/staging-root" --install-lib="$(python_get_sitedir)" \
+        --no-compile
+}
+
+src_install() {
+    edo cp -R "${WORK}/staging-root/." "${IMAGE}/"
+
+    dodir /usr/$(exhost --target)/bin
+    edo mv "${IMAGE}/usr/sbin/ufw" "${IMAGE}/usr/$(exhost --target)/bin/ufw"
+    edo rmdir "${IMAGE}/usr/sbin"
+    edo sed -i "1c#! /usr/$(exhost --target)/bin/python$(python_get_abi)" \
+        "${IMAGE}/usr/$(exhost --target)/bin/ufw"
+
+    insinto /usr/share/bash-completion/completions
+    newins shell-completion/bash ufw
+    install_systemd_files
+    keepdir /etc/ufw/user
+    dodoc README
+    python_bytecompile
+}
+
+pkg_postinst() {
+    ewarn "Allow remote SSH before enabling UFW; enabling it can interrupt your connection."
+}
