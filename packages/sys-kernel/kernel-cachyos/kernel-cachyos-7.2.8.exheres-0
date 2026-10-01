@@ -33,6 +33,8 @@ DEPENDENCIES="
         dev-libs/xxHash
         dev-util/dwarves
         dev-util/elfutils
+        sys-apps/systemd
+        sys-boot/dracut
         sys-devel/binutils
         sys-devel/lld
         sys-libs/zlib
@@ -86,6 +88,23 @@ src_install() {
 }
 
 pkg_postinst() {
-    elog "Kernel files installed; boot entry and initramfs have not been created."
-    elog "After checking your boot setup, run: kernel-install add ${KERNEL_RELEASE} /usr/lib/modules/${KERNEL_RELEASE}/vmlinuz"
+    local image="/usr/lib/modules/${KERNEL_RELEASE}/vmlinuz"
+    local retry="kernel-install add ${KERNEL_RELEASE} ${image}"
+
+    if [[ ${ROOT} != / ]] || ! exhost --is-native -q; then
+        elog "Boot setup skipped for non-native or alternate-root installation."
+        elog "On the target system, run: ${retry}"
+    elif ! mountpoint -q /boot || ! command -v kernel-install >/dev/null ||
+        ! command -v dracut >/dev/null; then
+        ewarn "Boot setup skipped: /boot must be mounted and kernel-install and dracut available."
+        ewarn "After fixing boot setup, run: ${retry}"
+    elif ! kernel-install add "${KERNEL_RELEASE}" "${image}"; then
+        ewarn "Boot entry or initramfs creation failed; check output above."
+        ewarn "After fixing boot setup, run: ${retry}"
+    else
+        elog "CachyOS boot entry and initramfs installed via kernel-install."
+    fi
+
+    ewarn "With Secure Boot enabled, kernel-install does not guarantee a trusted kernel signature."
+    ewarn "Verify signing and boot entry before booting CachyOS; keep your working kernel as fallback."
 }
