@@ -1,0 +1,45 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require meson [ meson_minimum_version=0.59.0 ]
+require systemd-service
+
+SUMMARY="Keyboard driven and lightweight Wayland notification daemon"
+HOMEPAGE="https://codeberg.org/dnkl/fnott"
+DOWNLOADS="${HOMEPAGE}/releases/download/${PV}/${PNV}.tar.gz"
+
+LICENCES="MIT ZLIB"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEPENDENCIES="
+    build:
+        app-doc/scdoc
+        dev-libs/tllist[>=1.0.1]
+        sys-libs/wayland-protocols[>=1.32]
+
+    build+run:
+        media-libs/fcft[<4.0.0&>=3.0.0]
+        media-libs/fontconfig
+        media-libs/freetype
+        media-libs/libpng:=
+        media-libs/nanosvg
+        sys-apps/dbus
+        sys-libs/wayland
+        x11-libs/pixman:1
+"
+
+MESON_SOURCE="${WORKBASE}/${PNV}"
+MESON_SRC_CONFIGURE_PARAMS=(
+    -Ddocs=enabled
+    -Dsystemd-units-dir="${SYSTEMDUSERUNITDIR}"
+    -Dsystem-nanosvg=enabled
+)
+
+src_install() {
+    meson_src_install
+    edo mkdir -p "${IMAGE}${SYSTEMDUSERUNITDIR}"
+    edo mv "${IMAGE}/usr/lib/systemd/user/fnott.service" "${IMAGE}${SYSTEMDUSERUNITDIR}/"
+    edo rmdir "${IMAGE}/usr/lib/systemd/user" "${IMAGE}/usr/lib/systemd" "${IMAGE}/usr/lib"
+    edo rm -r "${IMAGE}/usr/share/doc/${PN}"
+}
