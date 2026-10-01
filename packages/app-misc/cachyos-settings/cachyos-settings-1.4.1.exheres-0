@@ -1,0 +1,87 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require systemd-service [ systemd_files=[ usr/lib/systemd/system/pci-latency.service ] ] \
+    udev-rules [ udev_files=[ usr/lib/udev/rules.d/{20-audio-pm,40-hpet-permissions,50-sata,60-ioschedulers,69-hdparm,71-nvidia,99-cpu-dma-latency}.rules ] ]
+
+SUMMARY="Configuration files and tweaks from CachyOS"
+HOMEPAGE="https://github.com/CachyOS/CachyOS-Settings"
+DOWNLOADS="${HOMEPAGE}/archive/refs/tags/${PV}.tar.gz -> ${PNV}.tar.gz"
+
+LICENCES="GPL-3"
+SLOT="0"
+PLATFORMS="~amd64"
+MYOPTIONS="zram"
+
+DEPENDENCIES="
+    run:
+        app-shells/bash
+        sys-apps/hdparm
+        sys-apps/pciutils
+        sys-apps/systemd
+        sys-process/procps
+        zram? (
+            app-arch/zstd
+            sys-apps/zram-generator
+        )
+"
+
+WORK="${WORKBASE}/CachyOS-Settings-${PV}"
+
+src_prepare() {
+    edo sed -i "s@ExecStart=/usr/bin/pci-latency@ExecStart=/usr/$(exhost --target)/bin/pci-latency@" \
+        usr/lib/systemd/system/pci-latency.service
+}
+
+src_compile() {
+    :
+}
+
+src_install() {
+    insinto /etc/security/limits.d
+    doins etc/security/limits.d/20-audio.conf
+
+    exeinto /usr/$(exhost --target)/bin
+    doexe usr/bin/{dlss-swapper,dlss-swapper-dll,pci-latency,zink-run,game-performance,kerver}
+
+    insinto /usr/$(exhost --target)/lib/modprobe.d
+    doins usr/lib/modprobe.d/{amdgpu,blacklist,nvidia}.conf
+
+    insinto /usr/$(exhost --target)/lib/modules-load.d
+    doins usr/lib/modules-load.d/ntsync.conf
+
+    insinto /usr/$(exhost --target)/lib/sysctl.d
+    doins usr/lib/sysctl.d/70-cachyos-settings.conf
+
+    local systemd_dir="/usr/$(exhost --target)/lib/systemd"
+    insinto "${systemd_dir}/journald.conf.d"
+    doins usr/lib/systemd/journald.conf.d/00-journal-size.conf
+
+    insinto "${systemd_dir}/system.conf.d"
+    doins usr/lib/systemd/system.conf.d/{00-timeout,10-limits}.conf
+
+    install_systemd_files
+
+    insinto "${SYSTEMDSYSTEMUNITDIR}"
+    doins -r usr/lib/systemd/system/{rtkit-daemon,user@}.service.d
+    doins -r usr/lib/systemd/system/{session.slice,system.slice,user-.slice}.d
+
+    insinto "${systemd_dir}/user.conf.d"
+    doins usr/lib/systemd/user.conf.d/{00-timeout,10-limits}.conf
+
+    if option zram; then
+        insinto "${systemd_dir}"
+        doins usr/lib/systemd/zram-generator.conf
+
+        insinto "${UDEVRULESDIR}"
+        doins usr/lib/udev/rules.d/30-zram.rules
+    fi
+
+    insinto "${SYSTEMDTMPFILESDIR}"
+    doins usr/lib/tmpfiles.d/{coredump,thp-shrinker,thp}.conf
+
+    install_udev_files
+
+    insinto /usr/share/X11/xorg.conf.d
+    doins usr/share/X11/xorg.conf.d/20-touchpad.conf
+}
