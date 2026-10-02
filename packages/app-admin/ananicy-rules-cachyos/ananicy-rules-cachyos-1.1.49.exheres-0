@@ -1,0 +1,27 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+SUMMARY="CachyOS rules for ananicy-cpp"
+HOMEPAGE="https://github.com/CachyOS/ananicy-rules"
+DOWNLOADS="${HOMEPAGE}/archive/refs/tags/${PV}.tar.gz -> ${PNV}.tar.gz"
+
+LICENCES="GPL-3"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEPENDENCIES="
+    run:
+        app-admin/ananicy-cpp
+"
+
+WORK="${WORKBASE}/ananicy-rules-${PV}"
+
+src_compile() {
+    :
+}
+
+src_install() {
+    insinto /etc/ananicy.d
+    doins -r 00-default
+    doins 00-cgroups.cgroups 00-types.types ananicy.conf
+}

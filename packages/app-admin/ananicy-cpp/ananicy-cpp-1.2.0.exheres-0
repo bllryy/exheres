@@ -1,0 +1,47 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require cmake
+
+SUMMARY="Ananicy rewritten in C++ for lower resource usage"
+HOMEPAGE="https://gitlab.com/ananicy-cpp/ananicy-cpp"
+DOWNLOADS="${HOMEPAGE}/-/archive/v${PV}/${PN}-v${PV}.tar.bz2 -> ${PNV}.tar.bz2"
+
+LICENCES="GPL-3"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEPENDENCIES="
+    build:
+        dev-libs/json[>=3.9]
+
+    build+run:
+        dev-libs/fmt[>=8]
+        dev-libs/spdlog[>=1.9]
+        sys-apps/systemd
+
+    suggestion:
+        app-admin/ananicy-rules-cachyos [[ description = [ CachyOS rules and configuration ] ]]
+"
+
+CMAKE_SOURCE="${WORKBASE}/${PN}-v${PV}"
+
+CMAKE_SRC_CONFIGURE_PARAMS=(
+    -DENABLE_SYSTEMD=ON
+    -DUSE_BPF_PROC_IMPL=OFF
+    -DUSE_EXTERNAL_FMTLIB=ON
+    -DUSE_EXTERNAL_JSON=ON
+    -DUSE_EXTERNAL_SPDLOG=ON
+    -DVERSION="${PV}"
+    -DCCACHE=OFF
+)
+
+src_prepare() {
+    cmake_src_prepare
+    edo sed -i '/#include <string_view>/a #include <unistd.h>' src/platform/linux/debug.cpp
+    edo sed -i '/#include <thread>/a #include <unistd.h>' src/platform/linux/process.cpp
+    edo sed -i '/#include <systemd\/sd-login.h>/a #include <unistd.h>' src/platform/systemd/service.cpp
+    edo sed -i '/#include <cstdlib>/a #include <cstdint>' src/platform/linux/backtrace.cpp
+    edo sed -i '/#include <cstdlib>/a #include <cstring>' src/utility/argument_parsing/argument.cpp
+    edo sed -i '/#include <cerrno>/a #include <cstring>' src/platform/linux/singleton_process.cpp
+}
