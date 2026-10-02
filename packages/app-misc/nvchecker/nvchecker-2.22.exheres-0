@@ -1,0 +1,19 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require pypi py-pep517 [ backend=setuptools blacklist="3.9" multibuild=false ]
+
+SUMMARY="New version checker for software"
+
+LICENCES="MIT"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEPENDENCIES="
+    run:
+        dev-python/structlog[python_abis:*(-)?]
+        dev-python/platformdirs[python_abis:*(-)?]
+        dev-python/tornado[>=6][python_abis:*(-)?]
+        dev-python/pycurl[python_abis:*(-)?]
+        python_abis:3.10? ( dev-python/tomli[python_abis:3.10] )
+"
