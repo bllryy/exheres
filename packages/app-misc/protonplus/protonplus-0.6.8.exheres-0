@@ -1,0 +1,54 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require meson vala [ vala_dep=true vala_slots=[ 0.56 ] ] gsettings gtk-icon-cache
+
+SUMMARY="A modern compatibility tools manager"
+HOMEPAGE="https://github.com/Vysp3r/ProtonPlus"
+DOWNLOADS="${HOMEPAGE}/archive/refs/tags/v${PV}.tar.gz -> ${PNV}.tar.gz"
+
+LICENCES="GPL-3+"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEPENDENCIES+="
+    build:
+        dev-util/desktop-file-utils
+        sys-devel/gettext
+        virtual/pkg-config
+    build+run:
+        app-arch/libarchive
+        base/libgee:0.8
+        core/json-glib
+        dev-libs/appstream:5.3
+        dev-libs/glib:2
+        dev-libs/libadwaita:1[>=1.6][vapi]
+        gnome-desktop/libsoup:3.0[vapi]
+        media-libs/SDL:3[>=3.2.0]
+        x11-libs/cairo
+        x11-libs/gtk:4.0
+        x11-libs/libnotify
+"
+
+MESON_SOURCE="${WORKBASE}/ProtonPlus-${PV}"
+
+pkg_setup() {
+    meson_pkg_setup
+    vala_pkg_setup
+}
+
+src_install() {
+    export GSETTINGS_DISABLE_SCHEMAS_COMPILE=1
+    meson_src_install
+    unset GSETTINGS_DISABLE_SCHEMAS_COMPILE
+}
+
+pkg_postinst() {
+    gsettings_pkg_postinst
+    gtk-icon-cache_pkg_postinst
+}
+
+pkg_postrm() {
+    gsettings_pkg_postrm
+    gtk-icon-cache_pkg_postrm
+}
