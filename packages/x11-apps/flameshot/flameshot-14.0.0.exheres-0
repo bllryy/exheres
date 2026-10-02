@@ -16,7 +16,6 @@ LICENCES="
     FAL-1.3
     GPL-3+
 "
-
 SLOT="0"
 PLATFORMS="~amd64"
 

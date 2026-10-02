@@ -16,6 +16,7 @@ DEPENDENCIES+="
         dev-util/desktop-file-utils
         sys-devel/gettext
         virtual/pkg-config
+
     build+run:
         app-arch/libarchive
         base/libgee:0.8

@@ -14,8 +14,10 @@ PLATFORMS="~amd64"
 DEPENDENCIES+="
     build:
         dev-util/pkgconf
+
     build+run:
         sys-apps/dbus
+
     run:
         sys-apps/systemd
 "

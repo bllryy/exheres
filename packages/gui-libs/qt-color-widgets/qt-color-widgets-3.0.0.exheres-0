@@ -25,9 +25,9 @@ DEPENDENCIES="
     build+run:
         x11-libs/qtbase:6[gui]
 
-    designer? (
-        x11-libs/qttools:6[designer]
-    )
+        designer? (
+            x11-libs/qttools:6[designer]
+        )
 "
 
 CMAKE_SOURCE="${WORKBASE}/Qt-Color-Widgets-${PV}"

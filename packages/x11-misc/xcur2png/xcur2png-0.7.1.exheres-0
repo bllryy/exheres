@@ -4,9 +4,7 @@
 require autotools [ supported_autoconf=[ 2.7 ] supported_automake=[ 1.18 ] ] flag-o-matic
 
 SUMMARY="Convert X cursors to PNG images"
-HOMEPAGE="
-    https://github.com/eworm-de/xcur2png
-"
+HOMEPAGE="https://github.com/eworm-de/xcur2png"
 
 DOWNLOADS="
     https://github.com/eworm-de/xcur2png/releases/download/${PV}/${PNV}.tar.gz
@@ -19,6 +17,7 @@ PLATFORMS="~amd64"
 DEPENDENCIES="
     build:
         dev-util/pkgconf
+
     build+run:
         media-libs/libpng
         x11-libs/libXcursor
