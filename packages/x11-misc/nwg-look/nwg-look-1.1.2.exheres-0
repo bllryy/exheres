@@ -15,7 +15,7 @@ PLATFORMS="~amd64"
 
 DEPENDENCIES="
     build:
-        dev-lang/go
+        dev-lang/go[>=1.26]
 
     build+run:
         dev-libs/glib
