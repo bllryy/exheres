@@ -24,7 +24,10 @@ DEPENDENCIES="
         sys-fs/lvm2
 
     run:
-        app-admin/sudo
+        || (
+            app-admin/sudo-rs[native-names]
+            app-admin/sudo
+        )
 "
 
 WORK="${WORKBASE}/VeraCrypt-VeraCrypt_${PV}/src"
