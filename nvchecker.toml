@@ -41,6 +41,11 @@ gitlab = "holo/dmemcg-booster"
 use_max_tag = true
 include_regex = "[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
 
+["app-misc/ente-auth"]
+source = "aur"
+aur = "ente-auth"
+strip_release = true
+
 ["app-misc/nvchecker"]
 source = "pypi"
 pypi = "nvchecker"
@@ -101,6 +106,11 @@ use_max_tag = true
 include_regex = "v[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
 prefix = "v"
 
+["media-libs/zita-convolver"]
+source = "regex"
+url = "https://kokkinizita.linuxaudio.org/linuxaudio/downloads/"
+regex = 'href="zita-convolver-([0-9]+(?:\.[0-9]+)*)\.tar\.bz2"'
+
 ["media-sound/easyeffects"]
 source = "github"
 github = "wwmm/easyeffects"
@@ -122,6 +132,11 @@ use_max_release = true
 include_regex = "v[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
 prefix = "v"
 
+["net-firewall/ufw"]
+source = "regex"
+url = "https://launchpad.net/ufw/+download"
+regex = 'href="https://launchpad.net/ufw/[0-9.]+/[0-9.]+/\+download/ufw-([0-9]+(?:\.[0-9]+)*)\.tar\.gz"'
+
 ["net-im/discord"]
 source = "archpkg"
 archpkg = "discord"
@@ -132,10 +147,19 @@ source = "aur"
 aur = "viber"
 strip_release = true
 
+["net-im/zoom"]
+source = "regex"
+url = "https://zoom.us/rest/download?os=linux"
+regex = '"zoom":\{"version":"([0-9]+(?:\.[0-9]+)*)"'
+
 ["net-vpn/mullvad-vpn"]
 source = "aur"
 aur = "mullvad-vpn-bin"
 strip_release = true
+
+["sys-kernel/kernel-cachyos"]
+source = "aur"
+aur = "linux-cachyos"
 
 ["wayland-apps/fnott"]
 source = "gitea"

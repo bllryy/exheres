@@ -12,19 +12,15 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG = ROOT / "nvchecker.toml"
 
-# These recipe versions do not have a verified, comparable upstream feed.
 UNSUPPORTED = {
-    "app-misc/ente-auth": "auth release tag does not verify the AppImage asset",
     "media-libs/nanosvg": "recipe version is tied to a pinned commit",
     "media-libs/tg_owt": "recipe pins four commits, not a release",
-    "media-libs/zita-convolver": "upstream tarball listing not verified",
-    "net-firewall/ufw": "upstream download listing not verified",
     "net-libs/tde2e": "recipe version is tied to a pinned TDLib commit",
-    "sys-kernel/kernel-cachyos": "kernel and headers must both exist at matching binary release",
     "x11-apps/qt6ct": "Git tag does not verify the generic registry archive",
 }
-PROXIES = {"net-im/discord", "net-im/viber", "net-vpn/mullvad-vpn"}
+PROXIES = {"app-misc/ente-auth", "net-im/discord", "net-im/viber", "net-vpn/mullvad-vpn", "sys-kernel/kernel-cachyos"}
 VERSION = re.compile(r"[0-9]+(?:\.[0-9]+)*\Z")
+KERNEL_RELEASE = re.compile(r"[0-9]+(?:\.[0-9]+)*-[0-9]+\Z")
 
 
 def recipes(root):
@@ -52,6 +48,18 @@ def compare(current, upstream):
     a += (0,) * (length - len(a))
     b += (0,) * (length - len(b))
     return "newer" if b > a else "behind" if b < a else "current"
+
+
+def kernel_release(root, version):
+    paths = list((root / "packages/sys-kernel/kernel-cachyos").glob("*.exheres-0"))
+    if len(paths) != 1:
+        return None
+    try:
+        recipe = paths[0].read_text()
+    except OSError:
+        return None
+    match = re.search(r'^MY_RELEASE="\$\{PV\}-([0-9]+)"$', recipe, re.MULTILINE)
+    return f"{version}-{match.group(1)}" if match else None
 
 
 def results(output):
@@ -103,11 +111,21 @@ def report(root, config, output, returncode):
             status, detail = "failed", "no version returned"
         else:
             upstream = versions[name]
-            status = compare(installed, upstream)
-            if status == "incomparable":
-                status, detail = "failed", f"unrecognized version {upstream!r}"
+            if name == "sys-kernel/kernel-cachyos":
+                release = kernel_release(root, installed)
+                if release and KERNEL_RELEASE.fullmatch(upstream):
+                    status = compare(release.replace("-", "."), upstream.replace("-", "."))
+                else:
+                    status = "incomparable"
+                detail = f"{release} -> {upstream}" if release else "unrecognized recipe release"
             else:
+                status = compare(installed, upstream)
                 detail = f"{installed} -> {upstream}"
+            if status == "incomparable":
+                status = "failed"
+                if name != "sys-kernel/kernel-cachyos" or release:
+                    detail = f"unrecognized version {upstream!r}"
+            else:
                 if name in PROXIES:
                     status = f"proxy-{status}"
                     detail += " (Arch package; not upstream)" if name == "net-im/discord" else " (AUR package; not upstream)"
