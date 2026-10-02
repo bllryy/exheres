@@ -1,0 +1,172 @@
+[__config__]
+max_concurrency = 8
+
+["app-admin/ananicy-cpp"]
+source = "gitlab"
+gitlab = "ananicy-cpp/ananicy-cpp"
+use_max_tag = true
+include_regex = "v[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+prefix = "v"
+
+["app-admin/ananicy-rules-cachyos"]
+source = "github"
+github = "CachyOS/ananicy-rules"
+use_max_tag = true
+include_regex = "[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+
+["app-admin/sudo-rs"]
+source = "github"
+github = "trifectatechfoundation/sudo-rs"
+use_max_tag = true
+include_regex = "v[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+prefix = "v"
+
+["app-crypt/veracrypt"]
+source = "github"
+github = "veracrypt/VeraCrypt"
+use_max_tag = true
+include_regex = "VeraCrypt_[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+prefix = "VeraCrypt_"
+
+["app-misc/cachyos-settings"]
+source = "github"
+github = "CachyOS/CachyOS-Settings"
+use_max_tag = true
+include_regex = "[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+
+["app-misc/dmemcg-booster"]
+source = "gitlab"
+host = "gitlab.steamos.cloud"
+gitlab = "holo/dmemcg-booster"
+use_max_tag = true
+include_regex = "[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+
+["app-misc/nvchecker"]
+source = "pypi"
+pypi = "nvchecker"
+
+["app-misc/protonplus"]
+source = "github"
+github = "Vysp3r/ProtonPlus"
+use_max_tag = true
+include_regex = "v[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+prefix = "v"
+
+["app-misc/shuck"]
+source = "github"
+github = "ewhauser/shuck"
+use_max_tag = true
+include_regex = "v[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+prefix = "v"
+
+["app-virtualization/bubblejail"]
+source = "github"
+github = "igo95862/bubblejail"
+use_max_tag = true
+include_regex = "[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+
+["app-virtualization/distrobox"]
+source = "github"
+github = "89luca89/distrobox"
+use_max_tag = true
+include_regex = "[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+
+["dev-cpp/ada"]
+source = "github"
+github = "ada-url/ada"
+use_max_tag = true
+include_regex = "v[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+prefix = "v"
+
+["dev-python/structlog"]
+source = "pypi"
+pypi = "structlog"
+
+["gui-libs/adwaita-qt"]
+source = "github"
+github = "FedoraQt/adwaita-qt"
+use_max_tag = true
+include_regex = "[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+
+["gui-libs/qt-color-widgets"]
+source = "gitlab"
+gitlab = "mattbas/Qt-Color-Widgets"
+use_max_tag = true
+include_regex = "[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+
+["media-libs/libmysofa"]
+source = "github"
+github = "hoene/libmysofa"
+use_max_tag = true
+include_regex = "v[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+prefix = "v"
+
+["media-sound/easyeffects"]
+source = "github"
+github = "wwmm/easyeffects"
+use_max_tag = true
+include_regex = "v[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+prefix = "v"
+
+["media-sound/pear-desktop"]
+source = "github"
+github = "pear-devs/pear-desktop"
+use_max_release = true
+include_regex = "v[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+prefix = "v"
+
+["net-im/ayugram-desktop"]
+source = "github"
+github = "AyuGram/AyuGramDesktop"
+use_max_release = true
+include_regex = "v[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+prefix = "v"
+
+["net-im/discord"]
+source = "archpkg"
+archpkg = "discord"
+strip_release = true
+
+["net-im/viber"]
+source = "aur"
+aur = "viber"
+strip_release = true
+
+["net-vpn/mullvad-vpn"]
+source = "aur"
+aur = "mullvad-vpn-bin"
+strip_release = true
+
+["wayland-apps/fnott"]
+source = "gitea"
+host = "codeberg.org"
+gitea = "dnkl/fnott"
+use_max_tag = true
+include_regex = "[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+
+["wayland-apps/fuzzel"]
+source = "gitea"
+host = "codeberg.org"
+gitea = "dnkl/fuzzel"
+use_max_tag = true
+include_regex = "[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+
+["x11-apps/flameshot"]
+source = "github"
+github = "flameshot-org/flameshot"
+use_max_tag = true
+include_regex = "v[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+prefix = "v"
+
+["x11-misc/nwg-look"]
+source = "github"
+github = "nwg-piotr/nwg-look"
+use_max_tag = true
+include_regex = "v[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+prefix = "v"
+
+["x11-misc/xcur2png"]
+source = "github"
+github = "eworm-de/xcur2png"
+use_max_tag = true
+include_regex = "[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
