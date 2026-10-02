@@ -1,0 +1,38 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require cargo [ rust_minimum_version=1.85 ] \
+    gitlab [ prefix=https://gitlab.steamos.cloud user=holo tag=${PV} new_download_scheme=true ] \
+    systemd-service [ systemd_files=[ dmemcg-booster-system.service ] systemd_user_files=[ dmemcg-booster-user.service ] ]
+
+SUMMARY="Boost foreground games with dmem cgroup limits"
+
+LICENCES="MIT"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEPENDENCIES+="
+    build:
+        dev-util/pkgconf
+    build+run:
+        sys-apps/dbus
+    run:
+        sys-apps/systemd
+"
+
+src_unpack() {
+    gitlab_src_unpack
+    edo cd "${WORK}"
+    ecargo_fetch
+}
+
+src_prepare() {
+    default
+    edo sed -i "s@ExecStart=/usr/bin/dmemcg-booster@ExecStart=/usr/$(exhost --target)/bin/dmemcg-booster@" \
+        dmemcg-booster-{system,user}.service
+}
+
+src_install() {
+    cargo_src_install
+    install_systemd_files
+}
