@@ -36,7 +36,9 @@ DEPENDENCIES="
         media-libs/opus
         media/ffmpeg
         media/pipewire
+        media-sound/pulseaudio
         net-libs/libsrtp
+        sys-sound/alsa-lib
         x11-dri/libdrm
         x11-dri/mesa
         x11-libs/libX11
@@ -63,7 +65,7 @@ CMAKE_SRC_CONFIGURE_PARAMS=(
     -DTG_OWT_USE_X11=ON
     -DTG_OWT_USE_PIPEWIRE=ON
     -DTG_OWT_DLOPEN_PIPEWIRE=ON
-    -DTG_OWT_BUILD_AUDIO_BACKENDS=OFF
+    -DTG_OWT_BUILD_AUDIO_BACKENDS=ON
 )
 
 src_prepare() {
