@@ -64,6 +64,13 @@ use_max_tag = true
 include_regex = "v[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
 prefix = "v"
 
+["app-misc/ydotool"]
+source = "github"
+github = "ReimuNotMoe/ydotool"
+use_max_tag = true
+include_regex = "v[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+prefix = "v"
+
 ["app-virtualization/bubblejail"]
 source = "github"
 github = "igo95862/bubblejail"
@@ -79,6 +86,13 @@ include_regex = "[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
 ["dev-cpp/ada"]
 source = "github"
 github = "ada-url/ada"
+use_max_tag = true
+include_regex = "v[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+prefix = "v"
+
+["dev-libs/libbpf"]
+source = "github"
+github = "libbpf/libbpf"
 use_max_tag = true
 include_regex = "v[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
 prefix = "v"
@@ -160,6 +174,20 @@ strip_release = true
 ["sys-kernel/kernel-cachyos"]
 source = "aur"
 aur = "linux-cachyos"
+
+["sys-kernel/scx"]
+source = "github"
+github = "sched-ext/scx"
+use_max_tag = true
+include_regex = "v[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+prefix = "v"
+
+["sys-kernel/scx-loader"]
+source = "github"
+github = "sched-ext/scx-loader"
+use_max_tag = true
+include_regex = "v[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+prefix = "v"
 
 ["wayland-apps/fnott"]
 source = "gitea"

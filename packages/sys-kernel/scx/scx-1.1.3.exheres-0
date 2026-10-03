@@ -1,0 +1,84 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require cargo [ rust_minimum_version=1.94.1 ] github [ user=sched-ext tag=v${PV} ] \
+    systemd-service [ systemd_files=[ services/scx.service ] ]
+
+SUMMARY="sched_ext BPF schedulers and tools"
+
+LICENCES="GPL-2"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEPENDENCIES+="
+    build:
+        dev-lang/clang[>=16]
+        dev-util/pkgconf
+
+    build+run:
+        dev-util/elfutils
+        dev-libs/libbpf[>=1.7.0]
+        sys-libs/libseccomp
+        sys-libs/zlib
+        app-arch/zstd
+
+    run:
+        sys-apps/systemd
+"
+
+SCX_BINARIES=(
+    scx_beerland scx_bpfland scx_cake scx_chaos scx_cosmos scx_flash
+    scx_forge scx_lavd scx_layered scx_mitosis scx_p2dq
+    scx_pandemonium scx_rustland scx_rusty scx_tickless
+    scxtop vmlinux_docify
+)
+
+CARGO_SRC_COMPILE_PARAMS=()
+for scheduler in "${SCX_BINARIES[@]}" ; do
+    CARGO_SRC_COMPILE_PARAMS+=( -p "${scheduler}" )
+done
+CARGO_SRC_TEST_PARAMS=( "${CARGO_SRC_COMPILE_PARAMS[@]}" )
+
+export BPF_CLANG="/usr/$(exhost --target)/bin/clang"
+export LIBBPF_SYS_LIBRARY_PATH="/usr/$(exhost --target)/lib"
+
+src_prepare() {
+    default
+
+    local manifest count=0
+    for manifest in rust/scx_arena/scx_arena/Cargo.toml \
+        rust/scx_bpf_compat/Cargo.toml rust/scx_cargo/Cargo.toml \
+        rust/scx_rustland_core/Cargo.toml rust/scx_userspace_arena/Cargo.toml \
+        rust/scx_utils/Cargo.toml scheds/rust/scx_*/Cargo.toml \
+        tools/scxtop/Cargo.toml ; do
+        [[ -f ${manifest} ]] || die "Missing Cargo manifest: ${manifest}"
+        local before after
+        before=$(grep -Ec '^libbpf-(rs|cargo|sys) = ' "${manifest}") || :
+        [[ ${before} -gt 0 ]] || die "Unexpected libbpf declarations in ${manifest}"
+        edo sed -i -E \
+            -e 's/^(libbpf-(rs|cargo|sys) = )"(=[^"]+)"$/\1{ version = "\3", default-features = false }/' \
+            -e 's/^(libbpf-(rs|cargo|sys) = \{ version = "[^"]+") \}$/\1, default-features = false }/' \
+            "${manifest}"
+        after=$(grep -Ec '^libbpf-(rs|cargo|sys) = \{ version = "[^"]+", default-features = false \}$' "${manifest}") || :
+        [[ ${before} -eq ${after} ]] || die "Could not disable libbpf defaults in ${manifest}"
+        (( count += before ))
+    done
+    [[ ${count} -eq 26 ]] || die "Expected 26 libbpf dependency declarations, found ${count}"
+
+    edo sed -i "/^ExecStart=/i Environment=\"PATH=/usr/$(exhost --target)/bin:/usr/bin:/bin\"" \
+        services/scx.service
+}
+
+src_install() {
+    exeinto /usr/$(exhost --target)/bin
+    local binary
+    for binary in "${SCX_BINARIES[@]}" ; do
+        doexe "target/$(rust_target_arch_name)/release/${binary}"
+    done
+
+    install_systemd_files
+    insinto /etc/default
+    doins services/scx
+
+    emagicdocs
+}

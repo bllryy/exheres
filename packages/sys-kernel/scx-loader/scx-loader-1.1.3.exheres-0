@@ -1,0 +1,53 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require cargo [ rust_minimum_version=1.95 ] github [ user=sched-ext tag=v${PV} ] \
+    systemd-service [ systemd_files=[ services/scx_loader.service ] ]
+
+SUMMARY="D-Bus loader and controls for sched_ext schedulers"
+
+LICENCES="GPL-2"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEPENDENCIES+="
+    run:
+        sys-kernel/scx[~${PV}]
+        sys-apps/dbus
+        sys-apps/systemd
+        sys-auth/polkit:1
+"
+
+CARGO_SRC_COMPILE_PARAMS=( -p scx_loader -p scxctl -p scxtui )
+CARGO_SRC_TEST_PARAMS=( "${CARGO_SRC_COMPILE_PARAMS[@]}" )
+
+src_prepare() {
+    default
+    edo sed -i "s@/usr/bin/scx_loader@/usr/$(exhost --target)/bin/scx_loader@" \
+        services/scx_loader.service services/org.scx.Loader.service
+    edo sed -i "/^ExecStart=/i Environment=\"PATH=/usr/$(exhost --target)/bin:/usr/bin:/bin\"" \
+        services/scx_loader.service
+}
+
+src_install() {
+    exeinto /usr/$(exhost --target)/bin
+    local binary
+    for binary in scx_loader scxctl scxtui ; do
+        doexe "target/$(rust_target_arch_name)/release/${binary}"
+    done
+
+    install_systemd_files
+
+    insinto /usr/share/dbus-1/system-services
+    doins services/org.scx.Loader.service
+    insinto /usr/share/dbus-1/system.d
+    doins configs/org.scx.Loader.conf
+    insinto /usr/share/dbus-1/interfaces
+    doins configs/org.scx.Loader.xml
+    insinto /usr/share/polkit-1/actions
+    doins configs/org.scx.Loader.policy
+    insinto /usr/share/scx_loader
+    newins configs/scx_loader.toml config.toml
+
+    emagicdocs
+}

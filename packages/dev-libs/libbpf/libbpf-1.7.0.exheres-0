@@ -1,0 +1,33 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require github [ user=libbpf tag=v${PV} ]
+
+SUMMARY="Library for loading and managing eBPF programs"
+
+LICENCES="|| ( LGPL-2.1 BSD-2 )"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEPENDENCIES="
+    build:
+        dev-util/pkgconf
+        sys-kernel/linux-headers
+
+    build+run:
+        dev-util/elfutils
+        sys-libs/zlib
+"
+
+src_compile() {
+    emake -C src
+}
+
+src_install() {
+    emake -C src install \
+        DESTDIR="${IMAGE}" \
+        PREFIX="/usr/$(exhost --target)" \
+        LIBDIR="/usr/$(exhost --target)/lib"
+    edo rm "${IMAGE}/usr/$(exhost --target)/lib/libbpf.a"
+    emagicdocs
+}

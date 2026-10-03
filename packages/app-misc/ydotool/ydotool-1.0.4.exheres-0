@@ -1,0 +1,29 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require cmake systemd-service
+
+SUMMARY="Generic command-line automation tool without X"
+HOMEPAGE="https://github.com/ReimuNotMoe/ydotool"
+DOWNLOADS="${HOMEPAGE}/archive/v${PV}.tar.gz -> ${PNV}.tar.gz"
+
+LICENCES="AGPL-3+"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEPENDENCIES="
+    build:
+        app-doc/scdoc
+        dev-util/pkgconf
+        sys-kernel/linux-headers
+
+    run:
+        sys-apps/systemd
+"
+
+CMAKE_SRC_CONFIGURE_PARAMS=( -DCMAKE_POLICY_VERSION_MINIMUM=3.5 )
+
+src_prepare() {
+    default
+    edo sed -i "/^add_subdirectory(Daemon)/i set(SD_UNITDIR \"${SYSTEMDUSERUNITDIR}\")" "${CMAKE_SOURCE}/CMakeLists.txt"
+}
