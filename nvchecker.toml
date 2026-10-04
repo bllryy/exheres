@@ -203,6 +203,12 @@ gitea = "dnkl/fuzzel"
 use_max_tag = true
 include_regex = "[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
 
+["wayland-apps/wlsunset"]
+source = "git"
+git = "https://git.sr.ht/~kennylevinsen/wlsunset"
+use_max_tag = true
+include_regex = "[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+
 ["x11-apps/flameshot"]
 source = "github"
 github = "flameshot-org/flameshot"

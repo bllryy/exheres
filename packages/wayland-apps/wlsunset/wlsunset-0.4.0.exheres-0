@@ -1,0 +1,24 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require meson [ meson_minimum_version=0.56.0 ]
+
+SUMMARY="Day/night gamma adjustments for Wayland"
+HOMEPAGE="https://sr.ht/~kennylevinsen/wlsunset/"
+DOWNLOADS="https://git.sr.ht/~kennylevinsen/wlsunset/archive/${PV}.tar.gz -> ${PNV}.tar.gz"
+
+LICENCES="MIT"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEPENDENCIES="
+    build:
+        app-doc/scdoc[>=1.9.7]
+        sys-libs/wayland-protocols
+
+    build+run:
+        sys-libs/wayland
+"
+
+MESON_SOURCE="${WORKBASE}/${PNV}"
+MESON_SRC_CONFIGURE_PARAMS=( -Dwerror=false -Dman-pages=enabled )
