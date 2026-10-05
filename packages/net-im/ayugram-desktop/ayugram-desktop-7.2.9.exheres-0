@@ -16,6 +16,7 @@ DEPENDENCIES="
     build:
         dev-lang/python:*[>=3]
         dev-libs/fmt
+        dev-libs/tlottie
         gnome-desktop/gobject-introspection
         virtual/pkg-config
         x11-libs/qtshadertools:6
@@ -37,7 +38,9 @@ DEPENDENCIES="
         media-libs/tg_owt
         media/ffmpeg[>=6]
         net-libs/tde2e
+        sys-apps/systemd
         sys-libs/zlib
+        x11-libs/pango
         x11-libs/qtbase:6[>=6.5][gui]
         x11-libs/qtsvg:6[>=6.5]
 

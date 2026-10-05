@@ -1,0 +1,30 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require cargo [ rust_minimum_version=1.96.1 ]
+
+TLOTTIE_COMMIT="31f1b542f88e7b4be9a01e749920d857535fc715"
+
+SUMMARY="Rust library for rendering Lottie animations"
+HOMEPAGE="https://github.com/dkaraush/tlottie"
+DOWNLOADS="${HOMEPAGE}/archive/${TLOTTIE_COMMIT}.tar.gz -> ${PNV}.tar.gz"
+WORK="${WORKBASE}/tlottie-${TLOTTIE_COMMIT}"
+
+LICENCES="MIT"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEFAULT_SRC_PREPARE_PATCHES=( "${FILES}/${PNV}-tdesktop-compat.patch" )
+
+src_compile() {
+    ecargo rustc --frozen --release --features c-api --lib --crate-type staticlib \
+        -- --print native-static-libs
+}
+
+src_install() {
+    insinto /usr/$(exhost --target)/lib
+    doins "target/$(rust_target_arch_name)/release/libtlottie.a"
+    insinto /usr/$(exhost --target)/include/tlottie
+    doins include/tlottie.h
+    emagicdocs
+}
