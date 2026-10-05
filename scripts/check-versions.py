@@ -13,6 +13,7 @@ ROOT = Path(__file__).resolve().parent.parent
 CONFIG = ROOT / "nvchecker.toml"
 
 UNSUPPORTED = {
+    "dev-libs/tlottie": "recipe version is tied to AyuGram's pinned commit and patch",
     "media-libs/nanosvg": "recipe version is tied to a pinned commit",
     "media-libs/tg_owt": "recipe pins four commits, not a release",
     "net-libs/tde2e": "recipe version is tied to a pinned TDLib commit",
@@ -23,9 +24,14 @@ VERSION = re.compile(r"[0-9]+(?:\.[0-9]+)*\Z")
 KERNEL_RELEASE = re.compile(r"[0-9]+(?:\.[0-9]+)*-[0-9]+\Z")
 
 
+def version_key(version):
+    return tuple(int(part) for part in version.split("."))
+
+
 def recipes(root):
     found = {}
     problems = []
+    kernel_versions = []
     for path in sorted((root / "packages").glob("*/*/*.exheres-0")):
         name = f"{path.parent.parent.name}/{path.parent.name}"
         stem = path.name.removesuffix(".exheres-0")
@@ -33,9 +39,20 @@ def recipes(root):
         if not stem.startswith(prefix) or not stem[len(prefix):]:
             problems.append(f"invalid recipe filename: {path.relative_to(root)}")
             continue
-        if name in found:
+        version = stem[len(prefix):]
+        if name == "sys-kernel/kernel-cachyos":
+            kernel_versions.append(version)
+            if not VERSION.fullmatch(version):
+                problems.append(f"invalid kernel version: {version}")
+                continue
+            if name not in found or version_key(version) > version_key(found[name]):
+                found[name] = version
+        elif name in found:
             problems.append(f"multiple versions for {name}")
-        found[name] = stem[len(prefix):]
+        else:
+            found[name] = version
+    if len(kernel_versions) > 2:
+        problems.append("keep only the latest and previous kernel-cachyos recipes")
     return found, problems
 
 
@@ -51,11 +68,9 @@ def compare(current, upstream):
 
 
 def kernel_release(root, version):
-    paths = list((root / "packages/sys-kernel/kernel-cachyos").glob("*.exheres-0"))
-    if len(paths) != 1:
-        return None
+    path = root / "packages/sys-kernel/kernel-cachyos" / f"kernel-cachyos-{version}.exheres-0"
     try:
-        recipe = paths[0].read_text()
+        recipe = path.read_text()
     except OSError:
         return None
     match = re.search(r'^MY_RELEASE="\$\{PV\}-([0-9]+)"$', recipe, re.MULTILINE)
