@@ -2,7 +2,7 @@
 
 This is a personal Exherbo repository for packages I use. Issues and pull requests are welcome on [Codeberg](https://codeberg.org/Gurov/gurov). If you're proposing a new package, open an issue first.
 
-Keep changes focused. Check versions, source URLs, licences, and dependencies against upstream rather than copying them from another package. Put patches in the package's `files/` directory and explain why they're needed.
+Keep changes focused. Check versions, source URLs, licences, and dependencies against upstream rather than copying them from another package. Prefer an upstream `.deb` over an `.rpm` when both provide equivalent Linux binaries; check archive contents rather than assuming they match. Put patches in the package's `files/` directory and explain why they're needed.
 
 ## Exheres style
 

@@ -101,6 +101,13 @@ prefix = "v"
 source = "pypi"
 pypi = "structlog"
 
+["games-misc/hydra-launcher"]
+source = "github"
+github = "hydralauncher/hydra"
+use_max_release = true
+include_regex = "v[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+prefix = "v"
+
 ["gui-libs/adwaita-qt"]
 source = "github"
 github = "FedoraQt/adwaita-qt"
