@@ -28,4 +28,4 @@ Install `nvchecker`, then run from repository root:
 python3 scripts/check-versions.py
 ```
 
-`proxy-*` results use Arch/AUR versions as hints, not proof that recipe downloads exist. `unsupported` has no comparable feed; `failed` means a check failed. Check downloaded assets before updating recipes.
+Some versions come from Arch or AUR, so an update there is only a hint. Check downloaded assets before updating recipes.
