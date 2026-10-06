@@ -6,7 +6,6 @@ import re
 import subprocess
 import sys
 import tomllib
-from collections import Counter
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -19,9 +18,16 @@ UNSUPPORTED = {
     "net-libs/tde2e": "recipe version is tied to a pinned TDLib commit",
     "x11-apps/qt6ct": "Git tag does not verify the generic registry archive",
 }
-PROXIES = {"app-misc/ente-auth", "net-im/discord", "net-im/viber", "net-vpn/mullvad-vpn", "sys-kernel/kernel-cachyos"}
 VERSION = re.compile(r"[0-9]+(?:\.[0-9]+)*\Z")
 KERNEL_RELEASE = re.compile(r"[0-9]+(?:\.[0-9]+)*-[0-9]+\Z")
+
+LABELS = {
+    "update": "to update",
+    "failed": "failed",
+    "ahead": "ahead of upstream",
+    "unsupported": "not tracked",
+    "current": "up to date",
+}
 
 
 def version_key(version):
@@ -64,7 +70,7 @@ def compare(current, upstream):
     length = max(len(a), len(b))
     a += (0,) * (length - len(a))
     b += (0,) * (length - len(b))
-    return "newer" if b > a else "behind" if b < a else "current"
+    return "update" if b > a else "ahead" if b < a else "current"
 
 
 def kernel_release(root, version):
@@ -112,8 +118,7 @@ def report(root, config, output, returncode):
     if returncode not in (0, 3):
         problems.append(f"nvchecker exited with status {returncode}")
 
-    counts = Counter()
-    lines = []
+    rows = {status: [] for status in LABELS}
     for name in sorted(current):
         installed = current[name]
         if name in UNSUPPORTED:
@@ -140,17 +145,17 @@ def report(root, config, output, returncode):
                 status = "failed"
                 if name != "sys-kernel/kernel-cachyos" or release:
                     detail = f"unrecognized version {upstream!r}"
-            else:
-                if name in PROXIES:
-                    status = f"proxy-{status}"
-                    detail += " (Arch package; not upstream)" if name == "net-im/discord" else " (AUR package; not upstream)"
-        counts[status] += 1
-        lines.append(f"{status:14} {name:39} {detail}")
+        rows[status].append((name, detail))
     if returncode == 3 and not errors:
         problems.append("nvchecker reported failures without error details")
-    lines.append(" ".join(f"{key}={counts[key]}" for key in ("newer", "current", "behind", "proxy-newer", "proxy-current", "proxy-behind", "unsupported", "failed")))
-    lines.extend(f"ERROR: {problem}" for problem in problems)
-    return "\n".join(lines), bool(problems or counts["failed"])
+
+    lines = [", ".join(f"{len(rows[status])} {label}" for status, label in LABELS.items() if rows[status])]
+    shown = [f"{status:6}  {name:39} {detail}" for status in ("update", "failed") for name, detail in rows[status]]
+    if shown:
+        lines += ["", *shown]
+    if problems:
+        lines += ["", *(f"ERROR: {problem}" for problem in problems)]
+    return "\n".join(lines), bool(problems or rows["failed"])
 
 
 def main():
