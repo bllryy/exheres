@@ -1,0 +1,63 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require cmake freedesktop-desktop freedesktop-mime gtk-icon-cache
+
+SUMMARY="Minecraft launcher with ability to manage multiple instances"
+HOMEPAGE="https://prismlauncher.org https://github.com/PrismLauncher/PrismLauncher"
+DOWNLOADS="https://github.com/PrismLauncher/PrismLauncher/releases/download/${PV}/PrismLauncher-${PV}.tar.gz -> ${PNV}.tar.gz"
+
+LICENCES="Apache-2.0 Batch GPL-3 LGPL-2+ LGPL-3+ MIT OFL-1.1"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEPENDENCIES="
+    build:
+        app-doc/scdoc
+        kde-frameworks/extra-cmake-modules
+        sys-libs/vulkan-headers
+        virtual/jdk:17
+        virtual/pkg-config
+
+    build+run:
+        app-arch/libarchive
+        app-text/cmark
+        dev-cpp/tomlplusplus
+        media-libs/qrencode
+        sys-apps/gamemode
+        sys-apps/pciutils
+        sys-libs/zlib
+        x11-dri/mesa
+        x11-libs/qtbase:6[gui][vulkan]
+        x11-libs/qtnetworkauth:6
+        x11-libs/qtsvg:6
+
+    run:
+        x11-libs/qtimageformats:6
+
+    suggestion:
+        virtual/jre:* [[ description = [ System Java for running Minecraft, otherwise use the built-in Java downloader ] ]]
+"
+
+CMAKE_SOURCE="${WORKBASE}/PrismLauncher-${PV}"
+
+CMAKE_SRC_CONFIGURE_PARAMS=(
+    -DLauncher_BUILD_PLATFORM=Exherbo
+    -DLauncher_ENABLE_JAVA_DOWNLOADER=ON
+)
+
+CMAKE_SRC_CONFIGURE_TESTS=(
+    '-DBUILD_TESTING=ON -DBUILD_TESTING=OFF'
+)
+
+pkg_postinst() {
+    freedesktop-mime_pkg_postinst
+    freedesktop-desktop_pkg_postinst
+    gtk-icon-cache_pkg_postinst
+}
+
+pkg_postrm() {
+    freedesktop-mime_pkg_postrm
+    freedesktop-desktop_pkg_postrm
+    gtk-icon-cache_pkg_postrm
+}
