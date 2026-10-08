@@ -179,6 +179,12 @@ source = "regex"
 url = "https://zoom.us/rest/download?os=linux"
 regex = '"zoom":\{"version":"([0-9]+(?:\.[0-9]+)*)"'
 
+["net-misc/rustdesk"]
+source = "github"
+github = "rustdesk/rustdesk"
+use_max_release = true
+include_regex = "^[0-9]+\\.[0-9]+(?:\\.[0-9]+)*$"
+
 ["net-vpn/mullvad-vpn"]
 source = "aur"
 aur = "mullvad-vpn-bin"
@@ -221,6 +227,13 @@ source = "git"
 git = "https://git.sr.ht/~kennylevinsen/wlsunset"
 use_max_tag = true
 include_regex = "[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+
+["x11-apps/xdotool"]
+source = "github"
+github = "jordansissel/xdotool"
+use_max_release = true
+include_regex = "^v[0-9]+\\.[0-9]{8}\\.[0-9]+$"
+prefix = "v"
 
 ["x11-apps/flameshot"]
 source = "github"

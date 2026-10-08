@@ -1,0 +1,86 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require freedesktop-desktop freedesktop-mime gtk-icon-cache \
+    systemd-service [ systemd_files=[ usr/share/rustdesk/files/systemd/rustdesk.service ] ]
+
+SUMMARY="Remote desktop client and server"
+HOMEPAGE="https://rustdesk.com/"
+DOWNLOADS="https://github.com/rustdesk/rustdesk/releases/download/${PV}/${PNV}-x86_64.deb"
+
+LICENCES="AGPL-3"
+SLOT="0"
+PLATFORMS="~amd64"
+RESTRICT="mirror strip test"
+
+DEPENDENCIES="
+    run:
+        dev-libs/glib:2
+        media-libs/gstreamer:1.0
+        media-plugins/gst-plugins-base:1.0
+        media-sound/pulseaudio
+        media/pipewire[gstreamer]
+        net-misc/curl
+        sys-apps/dbus
+        sys-apps/systemd
+        sys-libs/wayland
+        sys-sound/alsa-lib
+        x11-apps/xdotool
+        x11-libs/cairo
+        x11-libs/gdk-pixbuf:2.0
+        x11-libs/gtk+:3
+        x11-libs/libX11
+        x11-libs/libXfixes
+        x11-libs/libXtst
+        x11-libs/libva[X]
+        x11-libs/libxcb
+        x11-libs/libxkbcommon
+        x11-libs/pango
+"
+
+WORK="${WORKBASE}"
+
+src_unpack() {
+    default
+    unpack ./data.tar.xz
+}
+
+src_prepare() {
+    default
+    edo sed -i '/^ExecStop=pkill -f /d; /^# kill --tray and --server both/d; /^# below two lines do not work/d; /^#ExecStop=/d' \
+        usr/share/rustdesk/files/systemd/rustdesk.service
+    edo sed -i "s@/usr/bin/rustdesk@/usr/$(exhost --target)/bin/rustdesk@" \
+        usr/share/rustdesk/files/systemd/rustdesk.service
+}
+
+src_compile() {
+    :
+}
+
+src_install() {
+    edo mkdir -p "${IMAGE}/usr/share/rustdesk"
+    edo cp -a usr/share/rustdesk/. "${IMAGE}/usr/share/rustdesk/"
+
+    insinto /usr/share/applications
+    doins usr/share/applications/{rustdesk,rustdesk-link}.desktop
+    insinto /usr/share/icons/hicolor/256x256/apps
+    doins usr/share/icons/hicolor/256x256/apps/rustdesk.png
+    insinto /usr/share/icons/hicolor/scalable/apps
+    doins usr/share/icons/hicolor/scalable/apps/rustdesk.svg
+
+    dodir /usr/$(exhost --target)/bin
+    dosym /usr/share/rustdesk/rustdesk /usr/$(exhost --target)/bin/rustdesk
+    install_systemd_files
+}
+
+pkg_postinst() {
+    freedesktop-mime_pkg_postinst
+    freedesktop-desktop_pkg_postinst
+    gtk-icon-cache_pkg_postinst
+}
+
+pkg_postrm() {
+    freedesktop-mime_pkg_postrm
+    freedesktop-desktop_pkg_postrm
+    gtk-icon-cache_pkg_postrm
+}

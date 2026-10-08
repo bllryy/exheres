@@ -1,0 +1,45 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+SUMMARY="Command-line X11 automation and libxdo library"
+HOMEPAGE="https://github.com/jordansissel/xdotool"
+DOWNLOADS="${HOMEPAGE}/archive/refs/tags/v${PV}.tar.gz -> ${PNV}.tar.gz"
+
+LICENCES="BSD-3"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEPENDENCIES="
+    build:
+        dev-util/pkgconf
+        dev-lang/perl
+
+    build+run:
+        x11-libs/libX11
+        x11-libs/libXinerama
+        x11-libs/libXtst
+        x11-libs/libxkbcommon
+"
+
+MAKE_PARAMS=(
+    PREFIX=/usr
+    INSTALLBIN=/usr/$(exhost --target)/bin
+    INSTALLLIB=/usr/$(exhost --target)/lib
+    INSTALLPC=/usr/$(exhost --target)/lib/pkgconfig
+    INSTALLINCLUDE=/usr/$(exhost --target)/include
+    INSTALLMAN=/usr/share/man
+)
+
+src_prepare() {
+    default
+    edo sed -i "s@pkg-config --@/usr/$(exhost --target)/bin/$(exhost --tool-prefix)pkg-config --@g" Makefile
+}
+
+src_compile() {
+    emake "${MAKE_PARAMS[@]}"
+}
+
+src_install() {
+    emake "${MAKE_PARAMS[@]}" DESTDIR="${IMAGE}" LDCONFIG=: install
+    dodoc COPYRIGHT
+}
