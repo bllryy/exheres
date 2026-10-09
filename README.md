@@ -20,7 +20,19 @@ cave sync gurov
 cave resolve category/package::gurov -x
 ```
 
-## Check for updates
+### Mirror
+
+A backup mirror is available at [git.coasteen.xyz](https://git.coasteen.xyz/exherbo-overlay.git). Use it if Codeberg is unavailable.
+
+To use the mirror, change the `sync` line in the repository configuration to:
+
+```ini
+sync = git+https://git.coasteen.xyz/exherbo-overlay.git
+```
+
+The mirror may not always be fully up to date with the primary repository.
+
+### Check for updates
 
 Install `nvchecker`, then run from repository root:
 
