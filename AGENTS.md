@@ -1,20 +1,14 @@
-# AGENTS.md
+# Agent guidelines
 
-## Repository Guidelines
+This repository contains Exherbo exheres maintained by Gurov. Follow nearby recipes and Exherbo packaging conventions. Keep changes small and focused.
 
-This repository contains Exherbo exheres maintained by Gurov.
+## AI use
 
-### AI Agent Usage
-
-AI agents may be used to assist with this repository, but contributors remain responsible for understanding, reviewing, and testing all changes they submit.
+New contributors must prepare their contributions without AI assistance. Maintainers may use AI to help with repository work, but they must understand, review, and test the changes before committing or submitting them.
 
 AI agents must not:
 
-- Commit or push changes unless explicitly requested by the repository owner.
+- Commit or push unless the repository owner explicitly requests it.
 - Open pull requests or submit patches without explicit authorization.
-- Invent package metadata, dependencies, licenses, or build instructions.
-- Make changes that have not been reviewed by the contributor.
-
-When modifying exheres, preserve the existing repository conventions and Exherbo packaging practices. Prefer small, focused changes over broad automated rewrites.
-
-All generated or AI-assisted changes must be reviewed and understood by the contributor before they are committed.
+- Invent package metadata, dependencies, licences, or build instructions. Verify them against upstream.
+- Treat a request to edit files as permission to commit or submit unreviewed changes.
