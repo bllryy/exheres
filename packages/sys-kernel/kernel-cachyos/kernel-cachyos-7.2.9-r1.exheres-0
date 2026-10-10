@@ -4,7 +4,7 @@
 SUMMARY="Prebuilt CachyOS Linux kernel with matching module headers"
 HOMEPAGE="https://github.com/CachyOS/linux-cachyos"
 
-MY_RELEASE="${PV}-1"
+MY_RELEASE="${PV}-2"
 MY_KERNEL="linux-cachyos-${MY_RELEASE}-x86_64_v3.pkg.tar.zst"
 MY_HEADERS="linux-cachyos-headers-${MY_RELEASE}-x86_64_v3.pkg.tar.zst"
 KERNEL_RELEASE="${MY_RELEASE}-cachyos"
@@ -14,7 +14,7 @@ DOWNLOADS="
 "
 
 LICENCES="GPL-2"
-SLOT="${PV}"
+SLOT="0"
 PLATFORMS="~amd64"
 RESTRICT="mirror strip test"
 
@@ -56,8 +56,8 @@ src_unpack() {
     local archive checksum expected
     for archive in "${MY_KERNEL}" "${MY_HEADERS}"; do
         case ${archive} in
-            "${MY_KERNEL}") expected=ca07fb27c9571abee43ac70c196ce54fd20e1e8eb3d08b25074c6ae72737dc69 ;;
-            "${MY_HEADERS}") expected=4487e9138c6cfd6dbb3698451ae412e3557b796815637ae2ec6d7f1f79549759 ;;
+            "${MY_KERNEL}") expected=1cb3b27ee69d0ef743d8c30e5811e128376ecf23bc62536405f4e86ffedf1086 ;;
+            "${MY_HEADERS}") expected=ba982020097ef03b43ae5644e3ce6ec0942c468032f62d15b47d6be475b7d2af ;;
         esac
         checksum=$(sha256sum "${FETCHEDDIR}/${archive}") || die "Cannot checksum ${archive}"
         [[ ${checksum%% *} == ${expected} ]] || die "CachyOS archive changed: ${archive}"

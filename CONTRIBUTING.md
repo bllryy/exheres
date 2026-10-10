@@ -12,7 +12,7 @@ Keep changes focused. Check versions, source URLs, licences, and dependencies ag
 - Group dependencies by purpose: `build`, `build+run`, `run`, then `test` or `suggestion` where needed. Leave a blank line between groups; don't add empty groups or unused options.
 - Use exlib defaults unless the package needs an override. Add only the phases you need.
 - Keep package-specific details such as pinned commits, archive names, slots, and restrictions. Consistency shouldn't change how a package builds.
-- Keep only the latest and immediately previous `sys-kernel/kernel-cachyos` exheres. Its versioned slots let both kernels remain installed, with the previous version as a boot fallback. On each update, add the new recipe and remove the oldest of the two.
+- Keep only one `sys-kernel/kernel-cachyos` exheres. The updater replaces it with the next version or revision (`-r1`, etc.). Use `SLOT="0"` so upgrades replace the installed CachyOS package; keep another working kernel as a boot fallback. Old installed versioned slots require a separate, manual post-boot migration; deleting their exheres does not uninstall them.
 
 Before opening a pull request:
 

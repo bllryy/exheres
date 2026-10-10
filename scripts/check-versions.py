@@ -20,6 +20,7 @@ UNSUPPORTED = {
 }
 VERSION = re.compile(r"[0-9]+(?:\.[0-9]+)*\Z")
 KERNEL_RELEASE = re.compile(r"[0-9]+(?:\.[0-9]+)*-[0-9]+\Z")
+KERNEL_RECIPE = re.compile(r"([0-9]+(?:\.[0-9]+)*)(?:-r([1-9][0-9]*))?\Z")
 
 LABELS = {
     "update": "to update",
@@ -30,14 +31,10 @@ LABELS = {
 }
 
 
-def version_key(version):
-    return tuple(int(part) for part in version.split("."))
-
-
 def recipes(root):
     found = {}
     problems = []
-    kernel_versions = []
+    kernel_count = 0
     for path in sorted((root / "packages").glob("*/*/*.exheres-0")):
         name = f"{path.parent.parent.name}/{path.parent.name}"
         stem = path.name.removesuffix(".exheres-0")
@@ -47,18 +44,17 @@ def recipes(root):
             continue
         version = stem[len(prefix):]
         if name == "sys-kernel/kernel-cachyos":
-            kernel_versions.append(version)
-            if not VERSION.fullmatch(version):
+            kernel_count += 1
+            if not KERNEL_RECIPE.fullmatch(version):
                 problems.append(f"invalid kernel version: {version}")
                 continue
-            if name not in found or version_key(version) > version_key(found[name]):
-                found[name] = version
+            found[name] = version
         elif name in found:
             problems.append(f"multiple versions for {name}")
         else:
             found[name] = version
-    if len(kernel_versions) > 2:
-        problems.append("keep only the latest and previous kernel-cachyos recipes")
+    if kernel_count > 1:
+        problems.append("keep only one kernel-cachyos recipe")
     return found, problems
 
 
@@ -80,7 +76,7 @@ def kernel_release(root, version):
     except OSError:
         return None
     match = re.search(r'^MY_RELEASE="\$\{PV\}-([0-9]+)"$', recipe, re.MULTILINE)
-    return f"{version}-{match.group(1)}" if match else None
+    return f"{KERNEL_RECIPE.fullmatch(version).group(1)}-{match.group(1)}" if match else None
 
 
 def results(output):
