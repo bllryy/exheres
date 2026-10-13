@@ -1,0 +1,52 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require py-pep517 [ backend=setuptools blacklist="3.9 3.10 3.11" multibuild=false ] \
+    gtk-icon-cache
+
+SUMMARY="Download, verify, and run Tor Browser"
+HOMEPAGE="https://gitlab.torproject.org/tpo/applications/torbrowser-launcher"
+DOWNLOADS="${HOMEPAGE}/-/archive/v${PV}/${PN}-v${PV}.tar.bz2 -> ${PNV}.tar.bz2"
+
+LICENCES="MIT"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEPENDENCIES="
+    build:
+        sys-devel/gettext
+
+    run:
+        dev-python/gpg[python_abis:*(-)?]
+        dev-python/packaging[python_abis:*(-)?]
+        dev-python/PySide6[python_abis:*(-)?]
+        dev-python/PySocks[python_abis:*(-)?]
+        dev-python/requests[python_abis:*(-)?]
+        x11-themes/hicolor-icon-theme
+"
+
+WORK="${WORKBASE}/${PN}-v${PV}"
+
+DEFAULT_SRC_PREPARE_PATCHES=(
+    "${FILES}/${PN}-0.3.9-no-apparmor.patch"
+)
+
+src_prepare() {
+    py-pep517_src_prepare
+    edo sed -i 's@sys.prefix + "/share"@"/usr/share"@' torbrowser_launcher/common.py
+}
+
+src_install() {
+    py-pep517_src_install
+    dodir /usr/share
+    edo mv "${IMAGE}/usr/$(exhost --target)/share/"* "${IMAGE}/usr/share/"
+    edo rmdir "${IMAGE}/usr/$(exhost --target)/share"
+}
+
+pkg_postinst() {
+    gtk-icon-cache_pkg_postinst
+}
+
+pkg_postrm() {
+    gtk-icon-cache_pkg_postrm
+}

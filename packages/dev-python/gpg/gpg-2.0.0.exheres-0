@@ -1,0 +1,28 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require pypi py-pep517 [ backend=setuptools blacklist="3.9 3.10 3.11" multibuild=false ]
+
+SUMMARY="Python bindings for GPGME"
+
+LICENCES="LGPL-2.1+ GPL-2+"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEPENDENCIES="
+    build:
+        dev-lang/swig
+
+    build+run:
+        app-crypt/gpgme:=[>=1.7]
+        dev-libs/libgpg-error:=
+"
+
+DEFAULT_SRC_PREPARE_PATCHES=(
+    "${FILES}/${PN}-2.0.0-python3.patch"
+)
+
+src_prepare() {
+    py-pep517_src_prepare
+    edo sed -i "s@/usr/x86_64-pc-linux-gnu/lib@/usr/$(exhost --target)/lib@g" setup.py
+}
