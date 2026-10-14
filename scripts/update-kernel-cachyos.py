@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
-"""Prepare a CachyOS kernel recipe from the latest AUR package release."""
+"""Prepare a CachyOS kernel recipe from the latest published binary release."""
 
 import hashlib
-import json
 import os
 import posixpath
 import re
@@ -15,15 +14,30 @@ import urllib.request
 from pathlib import Path, PurePosixPath
 
 ROOT = Path(__file__).resolve().parent.parent
-AUR_URL = "https://aur.archlinux.org/rpc/v5/info/linux-cachyos"
-MIRROR = "https://mirror.cachyos.org/repo/x86_64_v3/cachyos-v3"
+CDN = "https://cdn.cachyos.org/repo/x86_64_v3/cachyos-v3"
+INDEX = f"{CDN}/cachyos-v3.db"
 RECIPE = re.compile(r"kernel-cachyos-([0-9]+(?:\.[0-9]+)*)(?:-r([1-9][0-9]*))?\.exheres-0\Z")
 RELEASE = re.compile(r"([0-9]+(?:\.[0-9]+)*)-([1-9][0-9]*)\Z")
 MAX_DOWNLOAD = 1_500_000_000
+MAX_INDEX = 10_000_000
+MAX_INDEX_UNPACKED = 50_000_000
 
 
 class UpdateError(Exception):
     pass
+
+
+class LimitedReader:
+    def __init__(self, stream, limit):
+        self.stream = stream
+        self.remaining = limit
+
+    def read(self, size=-1):
+        data = self.stream.read(min(size, self.remaining + 1) if size >= 0 else self.remaining + 1)
+        self.remaining -= len(data)
+        if self.remaining < 0:
+            raise UpdateError("Decompressed repository index exceeds size limit")
+        return data
 
 
 def release_key(value):
@@ -48,19 +62,71 @@ def recipe_release(path):
     return f"{version}-{match.group(1)}"
 
 
-def latest_aur_release():
+def published_release():
     try:
-        with urllib.request.urlopen(AUR_URL, timeout=20) as response:
-            data = json.load(response)
-    except (urllib.error.URLError, TimeoutError, ValueError) as error:
-        raise UpdateError(f"AUR request failed (rate limit or network issue): {error}") from error
-    if not isinstance(data, dict) or data.get("resultcount") != 1 or not isinstance(data.get("results"), list) or len(data["results"]) != 1:
-        raise UpdateError("AUR did not return exactly one linux-cachyos result")
-    result = data["results"][0]
-    if not isinstance(result, dict) or result.get("Name") != "linux-cachyos" or not isinstance(result.get("Version"), str):
-        raise UpdateError("AUR returned an unexpected package or version")
-    release_key(result["Version"])
-    return result["Version"]
+        request = urllib.request.Request(INDEX, headers={"User-Agent": "kernel-cachyos-updater/1.0"})
+        with urllib.request.urlopen(request, timeout=20) as response:
+            data = response.read(MAX_INDEX + 1)
+    except (urllib.error.URLError, TimeoutError) as error:
+        raise UpdateError(f"Cannot download repository index: {error}") from error
+    if len(data) > MAX_INDEX:
+        raise UpdateError("Repository index exceeds size limit")
+
+    packages = {}
+    try:
+        with tempfile.TemporaryDirectory(prefix="kernel-index-") as temporary:
+            index = Path(temporary) / "cachyos-v3.db"
+            index.write_bytes(data)
+            with index.open("rb") as source, subprocess.Popen(
+                ["zstd", "-dc"], stdin=source, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
+            ) as decompressor:
+                try:
+                    stream = LimitedReader(decompressor.stdout, MAX_INDEX_UNPACKED)
+                    with tarfile.open(fileobj=stream, mode="r|") as tar:
+                        for member in tar:
+                            match = re.fullmatch(
+                                r"(linux-cachyos(?:-headers)?)-([0-9]+(?:\.[0-9]+)*-[1-9][0-9]*)/desc",
+                                member.name,
+                            )
+                            if not match:
+                                continue
+                            if not member.isfile() or member.size > 64_000:
+                                raise UpdateError(f"Invalid repository entry: {member.name}")
+                            name, release = match.groups()
+                            fields = {}
+                            metadata = tar.extractfile(member).read().decode("utf-8")
+                            for field in ("NAME", "VERSION", "FILENAME", "SHA256SUM", "ARCH"):
+                                values = re.findall(rf"(?m)^%{field}%\n([^\n]+)$", metadata)
+                                if len(values) != 1:
+                                    raise UpdateError(f"Invalid {field} in repository entry: {member.name}")
+                                fields[field] = values[0]
+                            filename = f"{name}-{release}-x86_64_v3.pkg.tar.zst"
+                            if (
+                                fields["NAME"], fields["VERSION"], fields["FILENAME"], fields["ARCH"]
+                            ) != (name, release, filename, "x86_64_v3") or not re.fullmatch(
+                                r"[0-9a-f]{64}", fields["SHA256SUM"]
+                            ):
+                                raise UpdateError(f"Mismatched repository entry: {member.name}")
+                            if (name, release) in packages:
+                                raise UpdateError(f"Duplicate repository entry: {member.name}")
+                            packages[name, release] = fields["SHA256SUM"]
+                    for _ in iter(lambda: stream.read(1024 * 1024), b""):
+                        pass
+                    if decompressor.wait() != 0:
+                        raise UpdateError("Cannot decompress repository index")
+                except BaseException:
+                    decompressor.kill()
+                    decompressor.wait()
+                    raise
+    except (tarfile.TarError, UnicodeError, OSError, BrokenPipeError) as error:
+        raise UpdateError(f"Cannot inspect repository index: {error}") from error
+    releases = {release for name, release in packages if name == "linux-cachyos"} & {
+        release for name, release in packages if name == "linux-cachyos-headers"
+    }
+    if not releases:
+        raise UpdateError("Repository index has no matching kernel and headers")
+    release = max(releases, key=release_key)
+    return release, {name: packages[name, release] for name in ("linux-cachyos", "linux-cachyos-headers")}
 
 
 def download(url, destination):
@@ -171,12 +237,12 @@ def update(root=ROOT):
     template = latest.read_text()
     if not re.search(r'^SLOT="0"$', template, re.MULTILINE):
         raise UpdateError(f"Kernel recipe must use SLOT=0: {latest.name}")
-    upstream = latest_aur_release()
+    upstream, published_hashes = published_release()
     if release_key(upstream) == release_key(current):
         print(f"Already current: {upstream}")
         return
     if release_key(upstream) < release_key(current):
-        raise UpdateError(f"AUR release {upstream} is older than recipe release {current}")
+        raise UpdateError(f"Published release {upstream} is older than recipe release {current}")
     version = upstream.rsplit("-", 1)[0]
     if version == current.rsplit("-", 1)[0] and release_key(upstream)[1] != release_key(current)[1] + 1:
         raise UpdateError("Upstream pkgrel skipped a release; review missing kernel revisions")
@@ -192,7 +258,9 @@ def update(root=ROOT):
             directory = Path(temporary) / name
             directory.mkdir()
             archive = directory / f"{name}-{upstream}-x86_64_v3.pkg.tar.zst"
-            hashes[name] = download(f"{MIRROR}/{archive.name}", archive)
+            hashes[name] = download(f"{CDN}/{archive.name}", archive)
+            if hashes[name] != published_hashes[name]:
+                raise UpdateError(f"{archive.name}: SHA-256 differs from repository index")
             inspect_archive(archive, name, upstream)
 
     content = render_recipe(template, upstream, hashes)

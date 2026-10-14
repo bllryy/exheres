@@ -1,6 +1,6 @@
 import importlib.util
 import io
-import json
+import subprocess
 import tarfile
 import tempfile
 import unittest
@@ -45,26 +45,40 @@ class KernelUpdates(unittest.TestCase):
         return path
 
     def run_update(self, version, error=None):
+        urls = []
+
         def download(url, destination):
+            urls.append(url)
             if error == "download" and "headers" in url:
                 raise updater.UpdateError("no matching headers")
             destination.write_bytes(b"archive")
+            if error == "hash" and "headers" in url:
+                return "c" * 64
             return "a" * 64 if "headers" not in url else "b" * 64
 
         def inspect(_archive, name, _release):
             if error == "inspect" and name == "linux-cachyos-headers":
                 raise updater.UpdateError("mismatched headers")
 
-        with patch.object(updater, "latest_aur_release", return_value=version), \
+        hashes = {"linux-cachyos": "a" * 64, "linux-cachyos-headers": "b" * 64}
+        with patch.object(updater, "published_release", return_value=(version, hashes)), \
              patch.object(updater, "download", side_effect=download), \
              patch.object(updater, "inspect_archive", side_effect=inspect):
             updater.update(self.root)
+        return urls
 
     def names(self):
         return sorted(path.name for path in self.package.iterdir())
 
     def test_same_pv_replaces_previous_recipe(self):
-        self.run_update("7.2.9-2")
+        urls = self.run_update("7.2.9-2")
+        self.assertEqual(
+            urls,
+            [
+                f"{updater.CDN}/linux-cachyos-7.2.9-2-x86_64_v3.pkg.tar.zst",
+                f"{updater.CDN}/linux-cachyos-headers-7.2.9-2-x86_64_v3.pkg.tar.zst",
+            ],
+        )
         self.assertEqual(self.names(), ["kernel-cachyos-7.2.9-r1.exheres-0"])
         revised = (self.package / "kernel-cachyos-7.2.9-r1.exheres-0").read_text()
         self.assertIn('MY_RELEASE="${PV}-2"', revised)
@@ -87,7 +101,9 @@ class KernelUpdates(unittest.TestCase):
         before = self.names()
         self.run_update("7.2.9-1")
         self.assertEqual(self.names(), before)
-        for version, error in (("7.2.9-3", None), ("7.2.9-2", "download"), ("7.2.9-2", "inspect")):
+        failures = (("7.2.9-3", None), ("7.2.9-2", "download"),
+                    ("7.2.9-2", "hash"), ("7.2.9-2", "inspect"))
+        for version, error in failures:
             with self.subTest(version=version, error=error), self.assertRaises(updater.UpdateError):
                 self.run_update(version, error)
             self.assertEqual(self.names(), before)
@@ -97,31 +113,64 @@ class KernelUpdates(unittest.TestCase):
         found, problems = checker.recipes(self.root)
         self.assertIn("keep only one kernel-cachyos recipe", problems)
         self.assertIn("sys-kernel/kernel-cachyos", found)
-        with patch.object(updater, "latest_aur_release") as aur, self.assertRaises(updater.UpdateError):
+        with patch.object(updater, "published_release") as published, self.assertRaises(updater.UpdateError):
             updater.update(self.root)
-        aur.assert_not_called()
+        published.assert_not_called()
         old.unlink()
         current = self.package / "kernel-cachyos-7.2.9.exheres-0"
         current.write_text(TEMPLATE.replace('SLOT="0"', 'SLOT="${PV}"'))
-        with patch.object(updater, "latest_aur_release") as aur, self.assertRaises(updater.UpdateError):
+        with patch.object(updater, "published_release") as published, self.assertRaises(updater.UpdateError):
             updater.update(self.root)
-        aur.assert_not_called()
+        published.assert_not_called()
         self.assertEqual(self.names(), ["kernel-cachyos-7.2.9.exheres-0"])
 
-    def test_bad_aur_response_preserves_recipes(self):
+    def test_bad_index_response_preserves_recipes(self):
         before = self.names()
-        for status in (403, 429):
-            with self.subTest(status=status):
-                from urllib.error import HTTPError
-                with patch.object(updater.urllib.request, "urlopen", side_effect=HTTPError(updater.AUR_URL, status, "blocked", {}, None)):
-                    with self.assertRaises(updater.UpdateError):
-                        updater.update(self.root)
-                self.assertEqual(self.names(), before)
+        from urllib.error import HTTPError
+        failure = HTTPError(updater.INDEX, 404, "missing", {}, None)
+        with patch.object(updater.urllib.request, "urlopen", side_effect=failure):
+            with self.assertRaises(updater.UpdateError):
+                updater.update(self.root)
+        self.assertEqual(self.names(), before)
 
-    def test_aur_payload(self):
-        payload = json.dumps({"resultcount": 1, "results": [{"Name": "linux-cachyos", "Version": "7.2.9-2"}]}).encode()
-        with patch.object(updater.urllib.request, "urlopen", return_value=io.BytesIO(payload)):
-            self.assertEqual(updater.latest_aur_release(), "7.2.9-2")
+    def test_repository_index_selects_matching_release(self):
+        def entry(name, release, digest="a" * 64, filename=None):
+            filename = filename or f"{name}-{release}-x86_64_v3.pkg.tar.zst"
+            return (
+                f"%NAME%\n{name}\n\n%VERSION%\n{release}\n\n%FILENAME%\n{filename}\n\n"
+                f"%SHA256SUM%\n{digest}\n\n%ARCH%\nx86_64_v3\n"
+            ).encode()
+
+        def index(items):
+            raw = io.BytesIO()
+            with tarfile.open(fileobj=raw, mode="w") as tar:
+                for name, release, metadata in items:
+                    info = tarfile.TarInfo(f"{name}-{release}/desc")
+                    info.size = len(metadata)
+                    tar.addfile(info, io.BytesIO(metadata))
+            return subprocess.run(["zstd", "-cq"], input=raw.getvalue(), stdout=subprocess.PIPE, check=True).stdout
+
+        kernel, headers = "linux-cachyos", "linux-cachyos-headers"
+        items = [
+            (kernel, "7.2.9-2", entry(kernel, "7.2.9-2")),
+            (headers, "7.2.9-2", entry(headers, "7.2.9-2", "b" * 64)),
+            (kernel, "7.2.10-1", entry(kernel, "7.2.10-1")),
+        ]
+        with patch.object(updater.urllib.request, "urlopen", return_value=io.BytesIO(index(items))):
+            self.assertEqual(updater.published_release(), ("7.2.9-2", {kernel: "a" * 64, headers: "b" * 64}))
+        items.append((headers, "7.2.10-1", entry(headers, "7.2.10-1", "b" * 64)))
+        with patch.object(updater.urllib.request, "urlopen", return_value=io.BytesIO(index(items))):
+            self.assertEqual(updater.published_release()[0], "7.2.10-1")
+        with patch.object(updater.urllib.request, "urlopen", return_value=io.BytesIO(index(items[:1]))):
+            with self.assertRaises(updater.UpdateError):
+                updater.published_release()
+        items[-1] = (headers, "7.2.10-1", entry(headers, "7.2.10-1", filename="wrong.pkg.tar.zst"))
+        with patch.object(updater.urllib.request, "urlopen", return_value=io.BytesIO(index(items))):
+            with self.assertRaises(updater.UpdateError):
+                updater.published_release()
+        with patch.object(updater.urllib.request, "urlopen", return_value=io.BytesIO(b"<html>placeholder</html>")):
+            with self.assertRaises(updater.UpdateError):
+                updater.published_release()
 
     def test_archive_metadata_and_paths(self):
         def archive(name, unsafe=False):

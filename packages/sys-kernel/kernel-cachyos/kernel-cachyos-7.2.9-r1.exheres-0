@@ -9,8 +9,8 @@ MY_KERNEL="linux-cachyos-${MY_RELEASE}-x86_64_v3.pkg.tar.zst"
 MY_HEADERS="linux-cachyos-headers-${MY_RELEASE}-x86_64_v3.pkg.tar.zst"
 KERNEL_RELEASE="${MY_RELEASE}-cachyos"
 DOWNLOADS="
-    https://mirror.cachyos.org/repo/x86_64_v3/cachyos-v3/${MY_KERNEL}
-    https://mirror.cachyos.org/repo/x86_64_v3/cachyos-v3/${MY_HEADERS}
+    https://cdn.cachyos.org/repo/x86_64_v3/cachyos-v3/${MY_KERNEL}
+    https://cdn.cachyos.org/repo/x86_64_v3/cachyos-v3/${MY_HEADERS}
 "
 
 LICENCES="GPL-2"
