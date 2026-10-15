@@ -209,10 +209,6 @@ source = "aur"
 aur = "mullvad-vpn-bin"
 strip_release = true
 
-["sys-kernel/kernel-cachyos"]
-source = "aur"
-aur = "linux-cachyos"
-
 ["sys-kernel/scx"]
 source = "github"
 github = "sched-ext/scx"

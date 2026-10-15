@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
-"""Compare repository recipe versions with nvchecker results, without writing state."""
+"""Compare recipe versions with upstream releases, without writing state."""
 
+import importlib.util
 import json
 import re
 import subprocess
@@ -10,6 +11,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 CONFIG = ROOT / "nvchecker.toml"
+KERNEL = "sys-kernel/kernel-cachyos"
+KERNEL_UPDATER = Path(__file__).with_name("update-kernel-cachyos.py")
 
 UNSUPPORTED = {
     "dev-libs/tlottie": "recipe version is tied to AyuGram's pinned commit and patch",
@@ -75,7 +78,7 @@ def kernel_release(root, version):
         recipe = path.read_text()
     except OSError:
         return None
-    match = re.search(r'^MY_RELEASE="\$\{PV\}-([0-9]+)"$', recipe, re.MULTILINE)
+    match = re.search(r'^MY_RELEASE="\$\{PV\}-([1-9][0-9]*)"$', recipe, re.MULTILINE)
     return f"{KERNEL_RECIPE.fullmatch(version).group(1)}-{match.group(1)}" if match else None
 
 
@@ -97,11 +100,14 @@ def results(output):
     return versions, errors
 
 
-def report(root, config, output, returncode):
+def report(root, config, output, returncode, published=None, kernel_error=None):
     current, problems = recipes(root)
     entries = {name for name in config if name != "__config__"}
+    tracked = entries | {KERNEL}
     overlap = entries & UNSUPPORTED.keys()
-    missing = current.keys() - entries - UNSUPPORTED.keys()
+    missing = current.keys() - tracked - UNSUPPORTED.keys()
+    if KERNEL in entries:
+        problems.append(f"kernel must use published repository index, not nvchecker: {KERNEL}")
     if config.get("__config__", {}).get("oldver") or config.get("__config__", {}).get("newver"):
         problems.append("nvchecker must not write version files")
     extra = (entries | UNSUPPORTED.keys()) - current.keys()
@@ -119,6 +125,17 @@ def report(root, config, output, returncode):
         installed = current[name]
         if name in UNSUPPORTED:
             status, detail = "unsupported", UNSUPPORTED[name]
+        elif name == KERNEL:
+            release = kernel_release(root, installed)
+            if not release:
+                status, detail = "failed", "unrecognized recipe release"
+            elif kernel_error:
+                status, detail = "failed", kernel_error
+            elif not isinstance(published, str) or not KERNEL_RELEASE.fullmatch(published):
+                status, detail = "failed", f"unrecognized published release {published!r}"
+            else:
+                status = compare(release.replace("-", "."), published.replace("-", "."))
+                detail = f"{release} -> {published}"
         elif name not in entries:
             status, detail = "failed", "no source configured"
         elif name in errors:
@@ -127,20 +144,10 @@ def report(root, config, output, returncode):
             status, detail = "failed", "no version returned"
         else:
             upstream = versions[name]
-            if name == "sys-kernel/kernel-cachyos":
-                release = kernel_release(root, installed)
-                if release and KERNEL_RELEASE.fullmatch(upstream):
-                    status = compare(release.replace("-", "."), upstream.replace("-", "."))
-                else:
-                    status = "incomparable"
-                detail = f"{release} -> {upstream}" if release else "unrecognized recipe release"
-            else:
-                status = compare(installed, upstream)
-                detail = f"{installed} -> {upstream}"
+            status = compare(installed, upstream)
+            detail = f"{installed} -> {upstream}"
             if status == "incomparable":
-                status = "failed"
-                if name != "sys-kernel/kernel-cachyos" or release:
-                    detail = f"unrecognized version {upstream!r}"
+                status, detail = "failed", f"unrecognized version {upstream!r}"
         rows[status].append((name, detail))
     if returncode == 3 and not errors:
         problems.append("nvchecker reported failures without error details")
@@ -166,9 +173,11 @@ def main():
         return 1
     current, problems = recipes(ROOT)
     entries = set(config) - {"__config__"}
-    problems.extend(f"unmapped recipe: {name}" for name in sorted(current.keys() - entries - UNSUPPORTED.keys()))
+    problems.extend(f"unmapped recipe: {name}" for name in sorted(current.keys() - entries - UNSUPPORTED.keys() - {KERNEL}))
     problems.extend(f"mapping without recipe: {name}" for name in sorted((entries | UNSUPPORTED.keys()) - current.keys()))
     problems.extend(f"both configured and unsupported: {name}" for name in sorted(entries & UNSUPPORTED.keys()))
+    if KERNEL in entries:
+        problems.append(f"kernel must use published repository index, not nvchecker: {KERNEL}")
     if problems:
         print("\n".join(f"ERROR: {problem}" for problem in problems), file=sys.stderr)
         return 1
@@ -180,7 +189,21 @@ def main():
     except OSError as error:
         print(f"Cannot run nvchecker: {error}", file=sys.stderr)
         return 1
-    text, failed = report(ROOT, config, completed.stdout, completed.returncode)
+    published = kernel_error = None
+    if KERNEL in current:
+        spec = importlib.util.spec_from_file_location("update_kernel_cachyos", KERNEL_UPDATER)
+        updater = importlib.util.module_from_spec(spec)
+        bytecode = sys.dont_write_bytecode
+        try:
+            sys.dont_write_bytecode = True
+            spec.loader.exec_module(updater)
+        finally:
+            sys.dont_write_bytecode = bytecode
+        try:
+            published, _ = updater.published_release()
+        except (updater.UpdateError, OSError, subprocess.SubprocessError) as error:
+            kernel_error = str(error)
+    text, failed = report(ROOT, config, completed.stdout, completed.returncode, published, kernel_error)
     print(text)
     if completed.stderr:
         print(completed.stderr, file=sys.stderr, end="")
