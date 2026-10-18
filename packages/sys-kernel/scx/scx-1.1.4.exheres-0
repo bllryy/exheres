@@ -63,7 +63,7 @@ src_prepare() {
         [[ ${before} -eq ${after} ]] || die "Could not disable libbpf defaults in ${manifest}"
         (( count += before ))
     done
-    [[ ${count} -eq 26 ]] || die "Expected 26 libbpf dependency declarations, found ${count}"
+    [[ ${count} -eq 27 ]] || die "Expected 27 libbpf dependency declarations, found ${count}"
 
     edo sed -i "/^ExecStart=/i Environment=\"PATH=/usr/$(exhost --target)/bin:/usr/bin:/bin\"" \
         services/scx.service
