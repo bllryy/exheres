@@ -1,0 +1,64 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require meson [ meson_minimum_version=0.61.0 ] systemd-service
+
+SUMMARY="Userspace tools for Linux containers"
+HOMEPAGE="https://linuxcontainers.org/"
+DOWNLOADS="https://github.com/lxc/lxc/releases/download/v${PV}/${PNV}.tar.gz"
+
+LICENCES="GPL-2 LGPL-2.1+"
+SLOT="0"
+PLATFORMS="~amd64"
+MYOPTIONS="examples io_uring"
+
+DEPENDENCIES="
+    build:
+        app-text/docbook-utils
+        virtual/pkg-config
+
+    build+run:
+        dev-libs/openssl:=
+        sys-apps/dbus
+        sys-apps/systemd
+        sys-libs/libcap
+        sys-libs/libseccomp[>=2.5.0]
+        sys-libs/pam
+        io_uring? ( sys-libs/liburing )
+"
+
+MESON_SRC_CONFIGURE_PARAMS=(
+    -Ddistrosysconfdir=/etc/lxc
+    -Dsystemd-unitdir="${SYSTEMDSYSTEMUNITDIR}"
+    -Dinit-script=systemd
+    -Dapparmor=false
+    -Dselinux=false
+    -Dcoverity-build=false
+    -Doss-fuzz=false
+    -Dspecfile=false
+    -Dcapabilities=true
+    -Ddbus=true
+    -Dman=true
+    -Dopenssl=true
+    -Dpam-cgroup=true
+    -Dseccomp=true
+    -Dtools=true
+    -Dtools-multicall=false
+)
+MESON_SRC_CONFIGURE_OPTION_SWITCHES=(
+    examples
+    'io_uring io-uring-event-loop'
+)
+
+src_prepare() {
+    meson_src_prepare
+
+    # docbook2man does not support the encoding option.
+    edo sed -e "/sgml2man, /s/'--encoding=UTF-8', //" \
+        -i doc/{,ja/,ko/}meson.build
+}
+
+src_install() {
+    meson_src_install
+    keepdir /etc/lxc /usr/$(exhost --target)/lib/lxc/rootfs /var/lib/lxc /var/cache/lxc
+}

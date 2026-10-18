@@ -1,0 +1,36 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+SUMMARY="GLib-based Binder IPC library"
+HOMEPAGE="https://github.com/mer-hybris/libgbinder"
+DOWNLOADS="${HOMEPAGE}/archive/refs/tags/${PV}.tar.gz -> ${PNV}.tar.gz"
+
+LICENCES="BSD-3"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEPENDENCIES="
+    build:
+        dev-util/pkgconf
+
+    build+run:
+        dev-libs/glib:2
+        dev-libs/libglibutil
+"
+
+src_prepare() {
+    default
+    edo sed -i 's/ranlib \$@/$(RANLIB) $@/' Makefile
+    edo sed -i "s@/usr/include@/usr/$(exhost --target)/include@g" \
+        Makefile libgbinder.pc.in
+}
+
+src_compile() {
+    emake release pkgconfig KEEP_SYMBOLS=1 CC="${CC}" AR="${AR}" \
+        RANLIB="${RANLIB}" LIBDIR="usr/$(exhost --target)/lib"
+}
+
+src_install() {
+    emake install-dev DESTDIR="${IMAGE}" LIBDIR="usr/$(exhost --target)/lib"
+    emagicdocs
+}

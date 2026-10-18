@@ -104,6 +104,19 @@ github = "89luca89/distrobox"
 use_max_tag = true
 include_regex = "[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
 
+["app-virtualization/lxc"]
+source = "github"
+github = "lxc/lxc"
+use_max_release = true
+include_regex = "v[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+prefix = "v"
+
+["app-virtualization/waydroid"]
+source = "github"
+github = "waydroid/waydroid"
+use_max_release = true
+include_regex = "[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+
 ["dev-cpp/ada"]
 source = "github"
 github = "ada-url/ada"
@@ -117,6 +130,24 @@ github = "libbpf/libbpf"
 use_max_tag = true
 include_regex = "v[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
 prefix = "v"
+
+["dev-libs/libgbinder"]
+source = "github"
+github = "mer-hybris/libgbinder"
+use_max_tag = true
+include_regex = "[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+
+["dev-libs/libglibutil"]
+source = "github"
+github = "sailfishos/libglibutil"
+use_max_tag = true
+include_regex = "[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
+
+["dev-python/gbinder-python"]
+source = "github"
+github = "waydroid/gbinder-python"
+use_max_tag = true
+include_regex = "[0-9]+\\.[0-9]+(?:\\.[0-9]+)*"
 
 ["dev-python/gpg"]
 source = "pypi"

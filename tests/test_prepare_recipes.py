@@ -84,14 +84,16 @@ class RecipePreparation(unittest.TestCase):
         with self.assertRaises(updater.PreparationError):
             updater.prepare_recipe(self.root, "games-misc/hydra-launcher", "4.2.0")
 
-    def test_scx_rename_warns_about_matching_loader(self):
-        directory = self.root / "packages/sys-kernel/scx"
-        directory.mkdir(parents=True)
-        (directory / "scx-1.1.3.exheres-0").write_text("# scx fixture\n")
-        with patch("builtins.print") as printed:
-            subject = updater.prepare_recipe(self.root, "sys-kernel/scx", "1.1.4")
-        self.assertEqual(subject, "update scx to 1.1.4")
-        self.assertTrue(any("matching scx" in str(call) for call in printed.call_args_list))
+    def test_scx_and_loader_rename_independently(self):
+        for package in ("scx", "scx-loader"):
+            with self.subTest(package=package):
+                directory = self.root / "packages/sys-kernel" / package
+                directory.mkdir(parents=True)
+                (directory / f"{package}-1.1.3.exheres-0").write_text("# fixture\n")
+                with patch("builtins.print") as printed:
+                    subject = updater.prepare_recipe(self.root, f"sys-kernel/{package}", "1.1.4")
+                self.assertEqual(subject, f"update {package} to 1.1.4")
+                printed.assert_not_called()
 
     def test_checksum_patterns_and_versionless_url(self):
         fixtures = (

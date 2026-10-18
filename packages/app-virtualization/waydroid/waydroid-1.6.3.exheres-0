@@ -1,0 +1,46 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require python [ blacklist="3.9 3.10 3.11" multibuild=false ] systemd-service
+
+SUMMARY="Run Android applications in a container"
+HOMEPAGE="https://waydro.id/"
+DOWNLOADS="https://github.com/waydroid/waydroid/archive/refs/tags/${PV}.tar.gz -> ${PNV}.tar.gz"
+
+LICENCES="GPL-3+"
+SLOT="0"
+PLATFORMS="~amd64"
+
+DEPENDENCIES="
+    run:
+        app-misc/ca-certificates
+        app-virtualization/lxc
+        dev-python/dbus-python[python_abis:*(-)?]
+        dev-python/gbinder-python[python_abis:*(-)?]
+        gnome-bindings/pygobject:3[python_abis:*(-)?]
+        net-dns/dnsmasq
+        net-firewall/nftables
+        sys-apps/dbus
+        sys-apps/iproute2
+        sys-apps/systemd
+        sys-auth/polkit:1
+        x11-libs/gtk+:3
+        x11-themes/hicolor-icon-theme
+"
+
+src_compile() {
+    :
+}
+
+src_install() {
+    local target=$(exhost --target)
+    emake install DESTDIR="${IMAGE}" USE_NFTABLES=1 USE_SYSTEMD=1 \
+        WAYDROID_DIR="/usr/${target}/lib/waydroid" \
+        BIN_DIR="/usr/${target}/bin" SYSD_DIR="${SYSTEMDSYSTEMUNITDIR}"
+    edo sed -i "1c#! /usr/${target}/bin/python$(python_get_abi)" \
+        "${IMAGE}/usr/${target}/lib/waydroid/waydroid.py"
+    edo sed -i "s@/usr/bin/waydroid@/usr/${target}/bin/waydroid@" \
+        "${IMAGE}${SYSTEMDSYSTEMUNITDIR}/waydroid-container.service" \
+        "${IMAGE}/usr/share/dbus-1/system-services/id.waydro.Container.service"
+    emagicdocs
+}

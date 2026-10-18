@@ -716,8 +716,6 @@ def prepare_recipe(root, name, version):
             raise PreparationError(f"Could not replace old recipe: {error}") from error
     if versionless:
         print(f"Note: {package} download URL does not include version; verify archive identity before commit")
-    if name in {"sys-kernel/scx", "sys-kernel/scx-loader"}:
-        print("Note: scx-loader requires matching scx version; review both recipes")
     return f"update {package} to {version}"
 
 
