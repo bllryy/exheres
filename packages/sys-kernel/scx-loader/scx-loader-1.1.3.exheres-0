@@ -12,7 +12,7 @@ PLATFORMS="~amd64"
 
 DEPENDENCIES+="
     run:
-        sys-kernel/scx[~${PV}]
+        sys-kernel/scx
         sys-apps/dbus
         sys-apps/systemd
         sys-auth/polkit:1
