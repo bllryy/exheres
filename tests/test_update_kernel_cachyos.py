@@ -1,5 +1,6 @@
 import importlib.util
 import io
+import os
 import subprocess
 import tarfile
 import tempfile
@@ -7,18 +8,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
-SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
-
-
-def load(name, filename):
-    spec = importlib.util.spec_from_file_location(name, SCRIPTS / filename)
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    return module
-
-
-updater = load("update_kernel_cachyos", "update-kernel-cachyos.py")
-checker = load("check_versions_revisions", "check-versions.py")
+SCRIPT = Path(__file__).resolve().parents[1] / "scripts/update-packages.py"
+spec = importlib.util.spec_from_file_location("update_packages_kernel", SCRIPT)
+updater = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(updater)
 TEMPLATE = '''MY_RELEASE="${PV}-1"
 SLOT="0"
 src_unpack() {
@@ -70,6 +63,106 @@ class KernelUpdates(unittest.TestCase):
     def names(self):
         return sorted(path.name for path in self.package.iterdir())
 
+    def test_injected_snapshot_reuses_hashes_and_returns_release(self):
+        hashes = {"linux-cachyos": "a" * 64, "linux-cachyos-headers": "b" * 64}
+        def download(url, destination):
+            destination.write_bytes(b"archive")
+            return hashes["linux-cachyos-headers" if "headers" in url else "linux-cachyos"]
+        with patch.object(updater, "published_release") as published, \
+             patch.object(updater, "download", side_effect=download), \
+             patch.object(updater, "inspect_archive"):
+            self.assertEqual(updater.update(self.root, ("7.2.9-2", hashes)), "7.2.9-2")
+        published.assert_not_called()
+        with patch.object(updater, "published_release") as published, patch.object(updater, "download") as downloaded:
+            self.assertIsNone(updater.update(self.root, ("7.2.9-2", hashes)))
+        published.assert_not_called()
+        downloaded.assert_not_called()
+
+    def test_invalid_snapshot_preserves_recipe(self):
+        before = self.recipe("7.2.9", TEMPLATE).read_bytes()
+        for hashes in ({}, {"linux-cachyos": "x", "linux-cachyos-headers": "b" * 64}):
+            with self.subTest(hashes=hashes), self.assertRaises(updater.UpdateError):
+                updater.update(self.root, ("7.2.9-2", hashes))
+        self.assertEqual((self.package / "kernel-cachyos-7.2.9.exheres-0").read_bytes(), before)
+
+    def test_changed_source_during_index_fetch_preserves_it(self):
+        source = self.package / "kernel-cachyos-7.2.9.exheres-0"
+        hashes = {"linux-cachyos": "a" * 64, "linux-cachyos-headers": "b" * 64}
+        def published():
+            source.write_text(TEMPLATE + "# changed during index fetch\n")
+            return "7.2.9-2", hashes
+        with patch.object(updater, "published_release", side_effect=published), \
+             patch.object(updater, "download") as download:
+            with self.assertRaisesRegex(updater.UpdateError, "changed while fetching index"):
+                updater.update(self.root)
+        download.assert_not_called()
+        self.assertIn("changed during index fetch", source.read_text())
+        self.assertEqual(self.names(), [source.name])
+
+    def test_source_inode_replacement_during_index_fetch_preserves_it(self):
+        source = self.package / "kernel-cachyos-7.2.9.exheres-0"
+        hashes = {"linux-cachyos": "a" * 64, "linux-cachyos-headers": "b" * 64}
+
+        def published():
+            replacement = self.package / "replacement.exheres-0"
+            replacement.write_text(TEMPLATE)
+            os.replace(replacement, source)
+            return "7.2.9-2", hashes
+
+        with patch.object(updater, "published_release", side_effect=published), \
+             patch.object(updater, "download") as download:
+            with self.assertRaisesRegex(updater.UpdateError, "changed while fetching index"):
+                updater.update(self.root)
+        download.assert_not_called()
+        self.assertEqual(source.read_text(), TEMPLATE)
+        self.assertEqual(self.names(), [source.name])
+
+    def test_changed_source_during_download_preserves_it(self):
+        source = self.package / "kernel-cachyos-7.2.9.exheres-0"
+        hashes = {"linux-cachyos": "a" * 64, "linux-cachyos-headers": "b" * 64}
+        def download(url, destination):
+            destination.write_bytes(b"archive")
+            source.write_text(TEMPLATE + "# concurrent edit\n")
+            return hashes["linux-cachyos-headers" if "headers" in url else "linux-cachyos"]
+        with patch.object(updater, "download", side_effect=download), patch.object(updater, "inspect_archive"):
+            with self.assertRaisesRegex(updater.UpdateError, "changed while preparing"):
+                updater.update(self.root, ("7.2.9-2", hashes))
+        self.assertIn("concurrent edit", source.read_text())
+        self.assertEqual(self.names(), [source.name])
+
+    def test_target_created_during_publication_is_not_overwritten(self):
+        source = self.package / "kernel-cachyos-7.2.9.exheres-0"
+        target = self.package / "kernel-cachyos-7.2.9-r1.exheres-0"
+        original_link = os.link
+
+        def collide(staged, destination):
+            if destination == target:
+                target.write_bytes(b"other maintainer's recipe")
+                raise FileExistsError(target)
+            return original_link(staged, destination)
+
+        with patch.object(updater.os, "link", side_effect=collide):
+            with self.assertRaisesRegex(updater.UpdateError, "Refusing to overwrite"):
+                self.run_update("7.2.9-2")
+        self.assertEqual(source.read_text(), TEMPLATE)
+        self.assertEqual(target.read_bytes(), b"other maintainer's recipe")
+
+    def test_failed_source_removal_rolls_back_published_target(self):
+        source = self.package / "kernel-cachyos-7.2.9.exheres-0"
+        target = self.package / "kernel-cachyos-7.2.9-r1.exheres-0"
+        original_unlink = Path.unlink
+
+        def fail_source_removal(path, *args, **kwargs):
+            if path == source:
+                raise PermissionError("source removal denied")
+            return original_unlink(path, *args, **kwargs)
+
+        with patch.object(Path, "unlink", autospec=True, side_effect=fail_source_removal):
+            with self.assertRaisesRegex(updater.UpdateError, "Could not replace old recipe"):
+                self.run_update("7.2.9-2")
+        self.assertEqual(source.read_text(), TEMPLATE)
+        self.assertFalse(target.exists())
+
     def test_same_pv_replaces_previous_recipe(self):
         urls = self.run_update("7.2.9-2")
         self.assertEqual(
@@ -85,10 +178,10 @@ class KernelUpdates(unittest.TestCase):
         self.assertIn('SLOT="0"', revised)
         self.assertIn("a" * 64, revised)
         self.assertIn("b" * 64, revised)
-        found, problems = checker.recipes(self.root)
+        found, problems = updater.recipes(self.root)
         self.assertEqual(problems, [])
         self.assertEqual(found["sys-kernel/kernel-cachyos"], "7.2.9-r1")
-        self.assertEqual(checker.kernel_release(self.root, "7.2.9-r1"), "7.2.9-2")
+        self.assertEqual(updater.kernel_release(self.root, "7.2.9-r1"), "7.2.9-2")
 
     def test_next_pkgrel_and_new_version(self):
         self.run_update("7.2.9-2")
@@ -110,7 +203,7 @@ class KernelUpdates(unittest.TestCase):
 
     def test_duplicate_and_legacy_slot_are_rejected(self):
         old = self.recipe("7.2.8", TEMPLATE)
-        found, problems = checker.recipes(self.root)
+        found, problems = updater.recipes(self.root)
         self.assertIn("keep only one kernel-cachyos recipe", problems)
         self.assertIn("sys-kernel/kernel-cachyos", found)
         with patch.object(updater, "published_release") as published, self.assertRaises(updater.UpdateError):
