@@ -1,0 +1,38 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+SUMMARY="Fast, disk space efficient package manager"
+HOMEPAGE="https://pnpm.io"
+DOWNLOADS="https://github.com/pnpm/pnpm/releases/download/v${PV}/pnpm-linux-x64.tar.gz -> ${PNV}.tar.gz"
+
+LICENCES="MIT"
+SLOT="0"
+PLATFORMS="~amd64"
+RESTRICT="mirror strip test"
+
+WORK="${WORKBASE}/${PNV}"
+
+src_unpack() {
+    local checksum
+    checksum=$(sha256sum "${FETCHEDDIR}/${PNV}.tar.gz") || die "Cannot checksum pnpm archive"
+    [[ ${checksum%% *} == 3910c3852136bed5bc1511b9137a45fd4357ed6b3970d9d08893641e9005867e ]] ||
+        die "pnpm archive changed; check version before updating checksum"
+    edo mkdir -p "${WORK}"
+    edo tar xzf "${FETCHEDDIR}/${PNV}.tar.gz" --no-same-owner -C "${WORK}"
+}
+
+src_compile() {
+    :
+}
+
+src_install() {
+    local prefix=/usr/$(exhost --target)
+    edo mkdir -p "${IMAGE}${prefix}/lib/${PNV}"
+    edo cp -a "${WORK}/." "${IMAGE}${prefix}/lib/${PNV}/"
+    edo find "${IMAGE}${prefix}/lib/${PNV}" -depth -type d -empty -delete
+    edo mkdir -p "${IMAGE}${prefix}/bin"
+    dosym "../lib/${PNV}/pnpm" "${prefix}/bin/pnpm"
+    printf '#!/bin/sh\nexec "$(dirname "$0")/pnpm" dlx "$@"\n' > "${WORKBASE}/pnpx" || die
+    exeinto "${prefix}/bin"
+    newexe "${WORKBASE}/pnpx" pnpx
+}
