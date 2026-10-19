@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=Element
+Comment=Matrix client
+Exec=element-desktop %u
+Icon=element-desktop
+Terminal=false
+Type=Application
+Categories=Network;InstantMessaging;Chat;
+MimeType=x-scheme-handler/io.element.desktop;x-scheme-handler/element;
+StartupWMClass=element-desktop

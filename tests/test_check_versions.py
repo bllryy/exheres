@@ -72,6 +72,16 @@ class VersionChecks(unittest.TestCase):
                 self.assertEqual(config[name]["url"], url)
                 self.assertEqual(re.findall(config[name]["regex"], html), [version])
 
+    def test_electron_stays_on_stable_44(self):
+        with (SCRIPT.parents[1] / "nvchecker.toml").open("rb") as file:
+            entry = tomllib.load(file)["dev-util/electron44"]
+        self.assertEqual(entry["github"], "electron/electron")
+        self.assertTrue(entry["use_max_release"])
+        self.assertEqual(entry["prefix"], "v")
+        for tag in ("v44.9.0", "v44.10.2", "v45.0.0", "v44.11.0-beta.1"):
+            with self.subTest(tag=tag):
+                self.assertEqual(bool(re.fullmatch(entry["include_regex"], tag)), tag in ("v44.9.0", "v44.10.2"))
+
     def test_zoom_feed(self):
         with (SCRIPT.parents[1] / "nvchecker.toml").open("rb") as file:
             config = tomllib.load(file)

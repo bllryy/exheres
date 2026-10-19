@@ -1,0 +1,80 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require freedesktop-desktop freedesktop-mime gtk-icon-cache
+
+SUMMARY="Matrix client built from Element Web and Desktop source"
+HOMEPAGE="https://element.io/"
+DOWNLOADS="https://github.com/element-hq/element-web/archive/refs/tags/v${PV}.tar.gz -> ${PNV}.tar.gz"
+
+LICENCES="GPL-3+"
+SLOT="0"
+PLATFORMS="~amd64"
+RESTRICT="test"
+
+DEPENDENCIES="
+    build:
+        dev-lang/node[>=22.18]
+        dev-node/pnpm[>=11.23]
+
+    run:
+        dev-util/electron44
+        dev-libs/libsecret
+        x11-apps/xdg-utils
+"
+
+WORK="${WORKBASE}/element-web-${PV}"
+
+pkg_setup() {
+    exdirectory --allow /opt
+}
+
+src_compile() {
+    export ELECTRON_SKIP_BINARY_DOWNLOAD=1
+    export PNPM_HOME="${WORKBASE}/pnpm-home"
+    export npm_config_store_dir="${WORKBASE}/pnpm-store"
+    edo mkdir -p "${PNPM_HOME}" "${npm_config_store_dir}"
+    export PATH="${PNPM_HOME}:${PATH}"
+
+    edo pnpm install --frozen-lockfile --store-dir "${npm_config_store_dir}"
+    edo pnpm --dir apps/web build
+    edo pnpm exec nx run element-desktop:build:ts
+    edo pnpm exec nx run element-desktop:build:res
+    edo ln -s ../web/webapp apps/desktop/webapp
+    edo pnpm --dir apps/desktop asar-webapp
+    edo pnpm --filter element-desktop deploy --prod --legacy "${WORKBASE}/desktop-deploy"
+    edo cp -a apps/desktop/lib/. "${WORKBASE}/desktop-deploy/lib/"
+    edo cp apps/desktop/webapp.asar "${WORKBASE}/desktop-deploy/"
+    edo mkdir -p "${WORKBASE}/desktop-deploy/build"
+    edo cp apps/desktop/build/icon.png "${WORKBASE}/desktop-deploy/build/"
+    local pkcs11=$(readlink -f "${WORKBASE}/desktop-deploy/node_modules/pkcs11js")
+    edo mkdir -p "${pkcs11}/build/Release"
+    edo cp "$(readlink -f apps/desktop/node_modules/pkcs11js)/build/Release/pkcs11.node" \
+        "${pkcs11}/build/Release/"
+}
+
+src_install() {
+    edo mkdir -p "${IMAGE}/opt/element-desktop"
+    edo cp -a "${WORKBASE}/desktop-deploy/." "${IMAGE}/opt/element-desktop/"
+
+    exeinto /usr/$(exhost --target)/bin
+    newexe "${FILES}/element-desktop-launcher" element-desktop
+    insinto /usr/share/applications
+    doins "${FILES}/element-desktop.desktop"
+    insinto /usr/share/icons/hicolor/256x256/apps
+    newins apps/desktop/build/icon.png element-desktop.png
+    insinto /usr/share/doc/${PNV}
+    doins LICENSE-GPL-3.0 LICENSE-AGPL-3.0
+}
+
+pkg_postinst() {
+    freedesktop-mime_pkg_postinst
+    freedesktop-desktop_pkg_postinst
+    gtk-icon-cache_pkg_postinst
+}
+
+pkg_postrm() {
+    freedesktop-mime_pkg_postrm
+    freedesktop-desktop_pkg_postrm
+    gtk-icon-cache_pkg_postrm
+}

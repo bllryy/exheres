@@ -84,6 +84,11 @@ class RecipePreparation(unittest.TestCase):
         with self.assertRaises(updater.PreparationError):
             updater.prepare_recipe(self.root, "games-misc/hydra-launcher", "4.2.0")
 
+    def test_element_requires_manual_review(self):
+        with self.assertRaisesRegex(updater.PreparationError, "Electron pin require manual review"):
+            updater.prepare_recipe(self.root, "net-im/element-desktop", "1.12.33")
+        self.assertTrue(self.source.exists())
+
     def test_scx_and_loader_rename_independently(self):
         for package in ("scx", "scx-loader"):
             with self.subTest(package=package):
