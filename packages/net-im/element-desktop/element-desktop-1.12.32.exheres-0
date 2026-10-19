@@ -29,20 +29,40 @@ pkg_setup() {
     exdirectory --allow /opt
 }
 
-src_compile() {
+src_unpack() {
+    default
+    cd "${WORK}" || die
     export ELECTRON_SKIP_BINARY_DOWNLOAD=1
+    export CC="$(exhost --target)-gcc"
+    export CXX="$(exhost --target)-g++"
     export PNPM_HOME="${WORKBASE}/pnpm-home"
     export npm_config_store_dir="${WORKBASE}/pnpm-store"
     edo mkdir -p "${PNPM_HOME}" "${npm_config_store_dir}"
     export PATH="${PNPM_HOME}:${PATH}"
-
     edo pnpm install --frozen-lockfile --store-dir "${npm_config_store_dir}"
+    edo pnpm --filter element-desktop deploy --prod --legacy --store-dir "${npm_config_store_dir}" "${WORKBASE}/desktop-deploy"
+    edo rm "${WORKBASE}/desktop-deploy/node_modules/.pnpm/node_modules/element-desktop"
+}
+
+src_prepare() {
+    default
+    edo sed -i 's/"implicitDependencies": \["element-web"\]/"implicitDependencies": ["web"]/' apps/desktop/project.json
+}
+
+src_compile() {
+    export PNPM_HOME="${WORKBASE}/pnpm-home"
+    export npm_config_store_dir="${WORKBASE}/pnpm-store"
+    export PATH="${PNPM_HOME}:${PATH}"
+    export NX_ISOLATE_PLUGINS=false
+    export NX_DAEMON=false
+    export NX_NATIVE_COMMAND_RUNNER=false
+    export pnpm_config_verify_deps_before_run=false
+
     edo pnpm --dir apps/web build
-    edo pnpm exec nx run element-desktop:build:ts
-    edo pnpm exec nx run element-desktop:build:res
-    edo ln -s ../web/webapp apps/desktop/webapp
+    edo pnpm exec nx run desktop:build:ts
+    edo pnpm exec nx run desktop:build:res
+    edo cp -a apps/web/webapp apps/desktop/webapp
     edo pnpm --dir apps/desktop asar-webapp
-    edo pnpm --filter element-desktop deploy --prod --legacy "${WORKBASE}/desktop-deploy"
     edo cp -a apps/desktop/lib/. "${WORKBASE}/desktop-deploy/lib/"
     edo cp apps/desktop/webapp.asar "${WORKBASE}/desktop-deploy/"
     edo mkdir -p "${WORKBASE}/desktop-deploy/build"
