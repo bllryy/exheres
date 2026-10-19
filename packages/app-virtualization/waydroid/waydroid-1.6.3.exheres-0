@@ -47,6 +47,7 @@ src_install() {
     edo sed -i "s@/usr/bin/waydroid@/usr/${target}/bin/waydroid@" \
         "${IMAGE}${SYSTEMDSYSTEMUNITDIR}/waydroid-container.service" \
         "${IMAGE}/usr/share/dbus-1/system-services/id.waydro.Container.service"
-    edo rm "${IMAGE}"/usr/share/applications/*.desktop
+    edo rm "${IMAGE}/usr/share/applications/waydroid.app.install.desktop" \
+        "${IMAGE}/usr/share/applications/waydroid.market.desktop"
     emagicdocs
 }
