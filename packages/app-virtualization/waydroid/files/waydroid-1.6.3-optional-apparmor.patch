@@ -1,0 +1,12 @@
+--- a/tools/helpers/lxc.py
++++ b/tools/helpers/lxc.py
+@@ -169,6 +169,9 @@ def set_lxc_config(args):
+     if get_apparmor_status(args):
+         command = ["sed", "-i", "-E", "/lxc.aa_profile|lxc.apparmor.profile/ s/unconfined/{}/g".format(LXC_APPARMOR_PROFILE), lxc_path + "/config"]
+         tools.helpers.run.user(args, command)
++    else:
++        command = ["sed", "-i", "-E", "/^lxc[.](aa_profile|apparmor[.]profile)[[:space:]]*=/d", lxc_path + "/config"]
++        tools.helpers.run.user(args, command)
+
+     nodes = generate_nodes_lxc_config(args)
+     config_nodes_tmp_path = args.work + "/config_nodes"

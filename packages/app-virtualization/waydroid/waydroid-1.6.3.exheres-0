@@ -30,6 +30,7 @@ DEPENDENCIES="
 
 src_prepare() {
     default
+    expatch "${FILES}/${PNV}-optional-apparmor.patch"
     edo sed -i '/^    def updateDesktopFile(appInfo):$/a\        return' tools/services/user_manager.py
 }
 
