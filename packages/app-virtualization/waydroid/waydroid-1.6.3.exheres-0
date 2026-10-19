@@ -28,6 +28,11 @@ DEPENDENCIES="
         x11-themes/hicolor-icon-theme
 "
 
+src_prepare() {
+    default
+    edo sed -i '/^    def updateDesktopFile(appInfo):$/a\        return' tools/services/user_manager.py
+}
+
 src_compile() {
     :
 }
@@ -42,5 +47,6 @@ src_install() {
     edo sed -i "s@/usr/bin/waydroid@/usr/${target}/bin/waydroid@" \
         "${IMAGE}${SYSTEMDSYSTEMUNITDIR}/waydroid-container.service" \
         "${IMAGE}/usr/share/dbus-1/system-services/id.waydro.Container.service"
+    edo rm "${IMAGE}"/usr/share/applications/*.desktop
     emagicdocs
 }
