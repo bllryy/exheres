@@ -283,6 +283,12 @@ class PreviewTests(unittest.TestCase):
             self.assertEqual(updater.main(["--apply", updater.KERNEL]), 0)
         apply.assert_called_once_with(updater.ROOT, published=snapshot)
         self.assertTrue(any("Draft: update kernel-cachyos to 7.2.9-3" in str(call) for call in printed.call_args_list))
+        with patch.object(updater, "update", return_value="7.2.11-1"), \
+             patch.object(updater, "preview", side_effect=run_preview), \
+             patch("builtins.print") as printed:
+            self.assertEqual(updater.main(["--apply", updater.KERNEL]), 0)
+        self.assertTrue(any("Draft: update kernel-cachyos to 7.2.11" in str(call) for call in printed.call_args_list))
+        self.assertFalse(any("7.2.11-1" in str(call) for call in printed.call_args_list))
         with patch.object(updater, "preview", side_effect=run_preview), \
              patch.object(updater, "update", return_value=None), \
              patch("builtins.print") as printed:
@@ -300,6 +306,18 @@ class PreviewTests(unittest.TestCase):
                 self.assertFalse(fatal)
             self.assertEqual(published.call_count, 2)
         self.assertNotIn(updater.KERNEL, json.loads(self.cache.read_text())["entries"])
+
+    def test_kernel_preview_hides_pkgrel_one_only(self):
+        kernel = self.root / "packages/sys-kernel/kernel-cachyos"
+        kernel.mkdir(parents=True)
+        (kernel / "kernel-cachyos-7.2.10.exheres-0").write_text('MY_RELEASE="${PV}-1"\n')
+        with patch.object(updater, "published_release", return_value=("7.2.11-1", {})):
+            rows, fatal, _ = self.run_preview(at=100_000)
+        self.assertEqual(rows[updater.KERNEL], ("update", "7.2.10 -> 7.2.11"))
+        self.assertFalse(fatal)
+        with patch.object(updater, "published_release", return_value=("7.2.11-2", {})):
+            rows, _, _ = self.run_preview(at=100_001)
+        self.assertEqual(rows[updater.KERNEL], ("update", "7.2.10 -> 7.2.11-2"))
 
     def test_preview_rejects_version_files(self):
         for setting in ('oldver = ""', 'newver = ""'):

@@ -120,6 +120,10 @@ def release_key(value):
     return tuple(map(int, match.group(1).split("."))), int(match.group(2))
 
 
+def display_release(release):
+    return release.removesuffix("-1")
+
+
 def recipe_key(path):
     match = RECIPE.fullmatch(path.name)
     if not match:
@@ -552,7 +556,7 @@ def preview(root=ROOT, config_path=CONFIG, cache_path=CACHE, refresh=False, now=
                 status = compare(release.replace("-", "."), published.replace("-", "."))
                 if kernel_out is not None:
                     kernel_out.append(snapshot)
-                rows[name] = (status, f"{release} -> {published}")
+                rows[name] = (status, f"{display_release(release)} -> {display_release(published)}")
             except (UpdateError, OSError, subprocess.SubprocessError, ValueError) as error:
                 rows[name] = ("failed", str(error))
     if updated != cache:
@@ -631,6 +635,8 @@ def download_checksum(url):
 
 
 def prepare_recipe(root, name, version):
+    if name == "net-im/element-desktop":
+        raise PreparationError("Element source layout and Electron pin require manual review")
     if name == KERNEL or name in UNSUPPORTED or not re.fullmatch(r'[A-Za-z0-9+_.-]+/[A-Za-z0-9+_.-]+', name):
         raise PreparationError("Unsupported package selector")
     if not VERSION.fullmatch(version) or len(version) > MAX_VERSION_LENGTH:
@@ -774,7 +780,7 @@ def main(argv=None):
                     raise PreparationError("no validated kernel index snapshot")
                 release = update(ROOT, published=kernel[0])
                 if release is not None:
-                    print(f"Draft: update kernel-cachyos to {release}")
+                    print(f"Draft: update kernel-cachyos to {display_release(release)}")
             else:
                 version = versions.get(name)
                 if version is None:
