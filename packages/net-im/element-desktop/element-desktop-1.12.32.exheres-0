@@ -63,6 +63,7 @@ src_compile() {
     edo pnpm exec nx run desktop:build:ts
     edo pnpm exec nx run desktop:build:res
     edo cp -a apps/web/webapp apps/desktop/webapp
+    edo cp apps/web/config.sample.json apps/desktop/webapp/config.json
     edo pnpm --dir apps/desktop asar-webapp
     edo cp -a apps/desktop/lib/. "${WORKBASE}/desktop-deploy/lib/"
     edo cp apps/desktop/webapp.asar "${WORKBASE}/desktop-deploy/"
