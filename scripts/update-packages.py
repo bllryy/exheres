@@ -478,7 +478,12 @@ def check_entry(name, config_path):
         if event.get("name") != name:
             continue
         if event.get("level") == "error":
-            error = event.get("event") if isinstance(event.get("event"), str) and event.get("event") else "unknown error"
+            detail = event.get("error")
+            message = event.get("event")
+            if isinstance(detail, str) and detail:
+                error = detail
+            elif error is None:
+                error = message if isinstance(message, str) and message else "unknown error"
         elif event.get("event") == "updated":
             candidate = event.get("version")
             if (event.get("level") != "info" or not isinstance(candidate, str)
@@ -576,7 +581,7 @@ def checksum_url(recipe, package, version):
     downloads = re.findall(r'(?m)^DOWNLOADS="([^"\n]+)"$', recipe)
     if len(downloads) != 1 or "\n" in downloads[0]:
         raise PreparationError("Cannot identify one literal download URL")
-    match = re.fullmatch(r'(https://[^\s]+) -> \$\{PNV\}(\.[A-Za-z0-9]+)', downloads[0])
+    match = re.fullmatch(r'(https://[^\s]+) -> \$\{PNV\}(\.[A-Za-z0-9]+(?:\.[A-Za-z0-9]+)*)', downloads[0])
     if not match or not re.search(r'checksum=\$\(sha256sum "\$\{FETCHEDDIR\}/\$\{PNV\}'
                                    + re.escape(match.group(2)) + r'"\) \|\| die', recipe):
         raise PreparationError("Checksum source does not match download")
