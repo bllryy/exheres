@@ -1,0 +1,70 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require alternatives flag-o-matic
+
+SUMMARY="Service supervision and init system"
+HOMEPAGE="https://github.com/davmac314/dinit"
+DOWNLOADS="${HOMEPAGE}/releases/download/v${PV}/${PNV}.tar.xz"
+
+LICENCES="Apache-2.0"
+SLOT="0"
+PLATFORMS="~amd64"
+MYOPTIONS="
+    caps [[ description = [ Enable Linux capabilities support ] ]]
+    cgroups [[ description = [ Enable Linux control groups support ] ]]
+    sysv-utils [[ description = [ Install init symlink and shutdown utilities ] ]]
+"
+
+DEPENDENCIES="
+    build:
+        dev-util/pkgconf
+        sys-devel/m4
+    build+run:
+        caps? ( sys-libs/libcap )
+"
+
+src_configure() {
+    export CXX_FOR_BUILD="$(exhost --build)-c++"
+    export CXXFLAGS_FOR_BUILD="-std=c++11 $(print-build-flags CXXFLAGS)"
+    export CPPFLAGS_FOR_BUILD="$(print-build-flags CPPFLAGS) "
+    export LDFLAGS_FOR_BUILD="$(print-build-flags LDFLAGS) "
+
+    export CXXFLAGS_EXTRA="${CXXFLAGS}" LDFLAGS_EXTRA="${LDFLAGS}"
+    unset CXXFLAGS LDFLAGS
+
+    edo ./configure \
+        --platform=Linux \
+        --prefix=/usr \
+        --bindir=/usr/$(exhost --target)/bin \
+        --sbindir=/usr/$(exhost --target)/bin \
+        --mandir=/usr/share/man \
+        --syscontrolsocket=/run/dinitctl \
+        --disable-strip \
+        $(option_enable caps capabilities) \
+        $(option_enable cgroups) \
+        $(option_enable sysv-utils shutdown)
+}
+
+src_install() {
+    default
+
+    if option sysv-utils; then
+        local tool host=$(exhost --target) alternatives=( init ${PN} 5 )
+        dosym dinit /usr/${host}/bin/init
+        alternatives+=( /usr/${host}/bin/init ${PN}.init )
+        alternatives+=( /usr/share/man/man8/init.8 ${PN}.init.8 )
+        dosym dinit.8 /usr/share/man/man8/init.8
+        for tool in shutdown halt reboot poweroff soft-reboot; do
+            alternatives+=(
+                /usr/${host}/bin/${tool} ${PN}.${tool}
+                /usr/share/man/man8/${tool}.8 ${PN}.${tool}.8
+            )
+        done
+        alternatives_for "${alternatives[@]}"
+        for tool in halt reboot poweroff soft-reboot; do
+            edo ln -sf ${PN}.shutdown "${IMAGE}"/usr/${host}/bin/${PN}.${tool}
+            edo ln -sf ${PN}.shutdown.8 "${IMAGE}"/usr/share/man/man8/${PN}.${tool}.8
+        done
+    fi
+}
