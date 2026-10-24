@@ -90,6 +90,12 @@ src_prepare() {
         -e '\|cp -adT /etc/os-release "${buildroot}/etc/os-release"|d' \
         -e 's|cp -adT /etc/os-release "${buildroot}/etc/initrd-release"|ln -sT os-release "${buildroot}/etc/initrd-release"|' \
         functions
+    edo sed -i '/^add_firmware() {$/,/^}$/ {
+        s/local fw fwpath/local fw fwpath file/
+        s|${BUILDROOT}${fwpath}/${fw}|${BUILDROOT}/lib/firmware/${fw}|
+        s|if read -r fwfile < <(compgen -G "${fwpath}/${fw}?(.*)"); then|if mapfile -t fwfile < <(compgen -G "${fwpath}/${fw}?(.*)"); (( ${#fwfile[@]} )); then|
+        s|map add_file "${fwfile\[@\]}" \&\& r=0|for file in "${fwfile[@]}"; do\n                        add_file "$(realpath -e -- "$file")" "/lib/firmware/${file#"${fwpath}/"}" \&\& r=0\n                    done|
+    }' functions
     edo sed -i \
         "s|hooks = 'base udev .*'|hooks = 'base udev modconf keyboard keymap block filesystems'|" meson.build
 }
