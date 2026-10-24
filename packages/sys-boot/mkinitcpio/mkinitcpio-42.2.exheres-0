@@ -45,7 +45,6 @@ DEPENDENCIES="
 "
 
 MESON_SRC_CONFIGURE_PARAMS=(
-    -Dlibdir=/usr/lib
     -Ddocs=false
     -Dalpm=false
     -Dkernel_install=false
@@ -57,6 +56,7 @@ MESON_SRC_CONFIGURE_PARAMS=(
 src_prepare() {
     meson_src_prepare
     edo meson rewrite kwargs set project / version "${PV}"
+    edo sed -i "s|^initcpio_libdir = libdir / 'initcpio'|initcpio_libdir = '/usr/lib/initcpio'|" meson.build
     local host=$(exhost --target)
 
     edo sed -i \
