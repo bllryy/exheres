@@ -84,5 +84,4 @@ src_install() {
     insinto /usr/share/doc/${PNVR}/examples
     doins "${IMAGE}/etc/mkinitcpio.conf"
     edo rm "${IMAGE}/etc/mkinitcpio.conf"
-    dodoc "${FILES}/README.Exherbo"
 }
