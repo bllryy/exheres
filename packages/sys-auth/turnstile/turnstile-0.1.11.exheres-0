@@ -1,0 +1,72 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require meson pam
+
+SUMMARY="Session tracking and user service management without systemd"
+HOMEPAGE="https://github.com/chimera-linux/turnstile"
+DOWNLOADS="${HOMEPAGE}/archive/refs/tags/v${PV}.tar.gz -> ${PNV}.tar.gz"
+
+LICENCES="BSD-2"
+SLOT="0"
+PLATFORMS="~amd64"
+MYOPTIONS="
+    dinit [[ description = [ Install the dinit user service backend and system service ] ]]
+    man [[ description = [ Build manual pages ] ]]
+    rundir [[ description = [ Manage XDG_RUNTIME_DIR directories ] ]]
+"
+
+DEPENDENCIES="
+    build:
+        virtual/pkg-config
+        man? ( app-doc/scdoc[>=1.10] )
+    build+run:
+        sys-libs/pam
+    run:
+        dinit? ( sys-apps/dinit )
+"
+
+src_configure() {
+    meson_src_configure \
+        -Dpam_moddir="$(getpam_mod_dir)" \
+        -Ddinit="$(option dinit enabled disabled)" \
+        -Drunit=disabled \
+        -Dman="$(option man true false)" \
+        -Dmanage_rundir="$(option rundir true false)"
+}
+
+src_install() {
+    meson_src_install
+    cleanpamd turnstiled
+
+    if option dinit; then
+        insinto /etc/dinit.d
+        hereins turnstiled <<EOF
+type = process
+command = /usr/$(exhost --target)/bin/turnstiled
+EOF
+    fi
+}
+
+pkg_postinst() {
+    einfo "No login PAM stack or boot service has been enabled automatically."
+    einfo "Start turnstiled before enabling pam_turnstile.so in your login session stack."
+    einfo "Use: session optional pam_turnstile.so"
+    einfo "Review /etc/pam.d/turnstiled and /etc/turnstile/turnstiled.conf first."
+    einfo "Do not enable runtime directory management alongside another runtime directory manager."
+    einfo "Arbor elogind uses user-runtime-dir=false; it does not supply XDG_RUNTIME_DIR."
+    einfo "If no other runtime directory manager is active, enable the rundir option or set manage_rundir = yes."
+    einfo "Turnstile does not replace elogind's seat, device or power management."
+    if option dinit; then
+        einfo "The default backend is dinit; set backend = none to disable user services."
+        einfo "Manually order /etc/dinit.d/turnstiled after /run setup and before PAM logins."
+        einfo "This process service has no readiness notification; verify its socket before allowing logins."
+        einfo "Supply a user login.target service in /etc/dinit.d/user or ~/.config/dinit.d."
+        einfo "The backend generates its own boot service; put user startup links in ~/.config/dinit.d/boot.d."
+        einfo "The backend starts boot, then starts login.target and waits for boot.d services."
+        einfo "Supply a user D-Bus service at XDG_RUNTIME_DIR/bus before login completes."
+        einfo "See /etc/turnstile/backend/dinit.conf; no user service definitions are supplied here."
+    else
+        einfo "The default backend is none; user service management is disabled."
+    fi
+}
