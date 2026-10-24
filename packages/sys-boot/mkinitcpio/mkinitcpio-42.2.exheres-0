@@ -1,6 +1,8 @@
 # Copyright 2026 Gurov <thuggerthugger1@duck.com>
 # Distributed under the terms of the GNU General Public License v2
 
+MESON_SOURCE="${WORKBASE}/${PN}-v${PV}"
+
 require meson
 
 SUMMARY="Bash script for creating initramfs images"
@@ -41,8 +43,6 @@ DEPENDENCIES="
         crypt? ( sys-fs/cryptsetup )
         uki? ( sys-apps/systemd[uki] )
 "
-
-WORK="${WORKBASE}/${PN}-v${PV}"
 
 MESON_SRC_CONFIGURE_PARAMS=(
     -Dlibdir=/usr/lib
