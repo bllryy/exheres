@@ -67,6 +67,15 @@ src_prepare() {
         -e "s|udevdir = '/usr/lib/udev'|udevdir = libdir / 'udev'|" \
         -e "s|tmpfilesdir = '/usr/lib/tmpfiles.d'|tmpfilesdir = libdir / 'tmpfiles.d'|" meson.build
     edo sed -i \
+        -e '/@UDEVD_PATH@/d' \
+        -e "/map add_binary/i\\    add_binary \"\$(realpath /usr/${host}/bin/udevd)\" /usr/bin/udevd" \
+        install/udev
+    edo sed -i 's|@UDEVD_PATH@|/usr/bin/udevd|g' hooks/udev
+    edo sed -i 's|/usr/share/kbd/|/usr/share/|g' install/consolefont functions
+    edo sed -i \
+        "s|add_binary /usr/lib/systemd/systemd-hibernate-resume|add_binary \"\$(realpath /usr/${host}/lib/systemd/systemd-hibernate-resume)\" /usr/lib/systemd/systemd-hibernate-resume|" \
+        install/resume
+    edo sed -i \
         -e "s|'/usr/bin/udevadm'|'udevadm'|" \
         -e "s|/usr/lib/udev/|/usr/${host}/lib/udev/|g" \
         -e "s|/usr/lib/libkmod.so.2|/usr/${host}/lib/libkmod.so.2|" install/udev
@@ -78,6 +87,9 @@ src_prepare() {
         -e "s|PATH='/usr/lib/udev:/lib/udev'|PATH='/usr/${host}/lib/udev:/usr/lib/udev:/lib/udev'|" \
         -e "s|add_file \"\$rules\" /usr/lib/udev/rules.d/|add_file \"\$rules\" /usr/${host}/lib/udev/rules.d/|" \
         -e '/dest="${2:-$binary}"/a\    [[ "$1" == /* || -n "$2" ]] || dest="/usr/bin/${1##*/}"' \
+        -e 's|install -Dm0644 "$osreleasefile" "${buildroot}${osreleasefile}"|install -Dm0644 "$osreleasefile" "${buildroot}/etc/os-release"|' \
+        -e '\|cp -adT /etc/os-release "${buildroot}/etc/os-release"|d' \
+        -e 's|cp -adT /etc/os-release "${buildroot}/etc/initrd-release"|ln -sT os-release "${buildroot}/etc/initrd-release"|' \
         functions
     edo sed -i \
         "s|hooks = 'base udev .*'|hooks = 'base udev modconf keyboard keymap block filesystems'|" meson.build
