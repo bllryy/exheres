@@ -1,0 +1,6 @@
+# No boot dependencies: available even when preflight fails.
+# Never add sulogin --force: locked root must not yield an unauthenticated shell.
+type = process
+command = /usr/x86_64-pc-linux-gnu/bin/sulogin
+options = runs-on-console
+restart = false
