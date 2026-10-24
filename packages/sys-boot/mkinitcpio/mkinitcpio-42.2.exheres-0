@@ -78,14 +78,13 @@ src_prepare() {
     edo sed -i \
         -e "s|'/usr/bin/udevadm'|'udevadm'|" \
         -e "s|/usr/lib/udev/|/usr/${host}/lib/udev/|g" \
-        -e "s|/usr/lib/libkmod.so.2|/usr/${host}/lib/libkmod.so.2|" install/udev
+        -e "s|'/usr/lib/libkmod.so.2'|'/usr/${host}/lib/libkmod.so.2' '/usr/${host}/lib/libblkid.so.1'|" install/udev
     edo sed -i \
         -e "s|/usr/lib/libgcc_s.so.1|/usr/${host}/lib/libgcc_s.so.1|" \
         -e "s#    add_binary '/usr/lib/ossl-modules/legacy.so'#    for mod in /usr/${host}/lib/{ossl-modules,openssl-*/lib/ossl-modules}/legacy.so; do [[ ! -f \"\$mod\" ]] || add_binary \"\$mod\"; done#" install/encrypt
     edo sed -i \
         -e "s|PATH='/usr/lib/udev/rules.d:/lib/udev/rules.d'|PATH='/usr/${host}/lib/udev/rules.d:/usr/lib/udev/rules.d:/lib/udev/rules.d'|" \
         -e "s|PATH='/usr/lib/udev:/lib/udev'|PATH='/usr/${host}/lib/udev:/usr/lib/udev:/lib/udev'|" \
-        -e "s|add_file \"\$rules\" /usr/lib/udev/rules.d/|add_file \"\$rules\" /usr/${host}/lib/udev/rules.d/|" \
         -e '/dest="${2:-$binary}"/a\    [[ "$1" == /* || -n "$2" ]] || dest="/usr/bin/${1##*/}"' \
         -e 's|install -Dm0644 "$osreleasefile" "${buildroot}${osreleasefile}"|install -Dm0644 "$osreleasefile" "${buildroot}/etc/os-release"|' \
         -e '\|cp -adT /etc/os-release "${buildroot}/etc/os-release"|d' \
