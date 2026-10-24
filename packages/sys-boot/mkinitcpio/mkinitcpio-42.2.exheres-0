@@ -56,12 +56,16 @@ MESON_SRC_CONFIGURE_PARAMS=(
 src_prepare() {
     meson_src_prepare
     edo meson rewrite kwargs set project / version "${PV}"
-    edo sed -i "s|^initcpio_libdir = libdir / 'initcpio'|initcpio_libdir = '/usr/lib/initcpio'|" meson.build
     local host=$(exhost --target)
 
     edo sed -i \
         -e "s|@BINDIR@:/bin|@BINDIR@:/usr/${host}/bin:/usr/bin:/bin|" mkinitcpio
     edo sed -i "s|/usr/lib/initcpio/busybox|/usr/${host}/bin/busybox|g" install/base
+    edo sed -i "s|/usr/lib/initcpio|/usr/${host}/lib/initcpio|g" \
+        mkinitcpio functions init shutdown install/* hooks/*
+    edo sed -i \
+        -e "s|udevdir = '/usr/lib/udev'|udevdir = libdir / 'udev'|" \
+        -e "s|tmpfilesdir = '/usr/lib/tmpfiles.d'|tmpfilesdir = libdir / 'tmpfiles.d'|" meson.build
     edo sed -i \
         -e "s|'/usr/bin/udevadm'|'udevadm'|" \
         -e "s|/usr/lib/udev/|/usr/${host}/lib/udev/|g" \
