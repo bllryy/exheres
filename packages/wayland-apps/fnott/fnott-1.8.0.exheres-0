@@ -11,6 +11,7 @@ DOWNLOADS="${HOMEPAGE}/releases/download/${PV}/${PNV}.tar.gz"
 LICENCES="MIT ZLIB"
 SLOT="0"
 PLATFORMS="~amd64"
+MYOPTIONS="systemd"
 
 DEPENDENCIES="
     build:
@@ -36,10 +37,19 @@ MESON_SRC_CONFIGURE_PARAMS=(
     -Dsystem-nanosvg=enabled
 )
 
+src_prepare() {
+    meson_src_prepare
+    if ! option systemd; then
+        edo sed -i "/^subdir('systemd')$/d" meson.build
+    fi
+}
+
 src_install() {
     meson_src_install
-    edo mkdir -p "${IMAGE}${SYSTEMDUSERUNITDIR}"
-    edo mv "${IMAGE}/usr/lib/systemd/user/fnott.service" "${IMAGE}${SYSTEMDUSERUNITDIR}/"
-    edo rmdir "${IMAGE}/usr/lib/systemd/user" "${IMAGE}/usr/lib/systemd" "${IMAGE}/usr/lib"
+    if option systemd; then
+        edo mkdir -p "${IMAGE}${SYSTEMDUSERUNITDIR}"
+        edo mv "${IMAGE}/usr/lib/systemd/user/fnott.service" "${IMAGE}${SYSTEMDUSERUNITDIR}/"
+        edo rmdir "${IMAGE}/usr/lib/systemd/user" "${IMAGE}/usr/lib/systemd" "${IMAGE}/usr/lib"
+    fi
     edo rm -r "${IMAGE}/usr/share/doc/${PN}"
 }

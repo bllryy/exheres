@@ -10,6 +10,7 @@ DOWNLOADS="https://github.com/waydroid/waydroid/archive/refs/tags/${PV}.tar.gz -
 LICENCES="GPL-3+"
 SLOT="0"
 PLATFORMS="~amd64"
+MYOPTIONS="systemd"
 
 DEPENDENCIES="
     run:
@@ -22,7 +23,7 @@ DEPENDENCIES="
         net-firewall/nftables
         sys-apps/dbus
         sys-apps/iproute2
-        sys-apps/systemd
+        systemd? ( sys-apps/systemd )
         sys-auth/polkit:1
         x11-libs/gtk+:3
         x11-themes/hicolor-icon-theme
@@ -40,13 +41,16 @@ src_compile() {
 
 src_install() {
     local target=$(exhost --target)
-    emake install DESTDIR="${IMAGE}" USE_NFTABLES=1 USE_SYSTEMD=1 \
+    emake install DESTDIR="${IMAGE}" USE_NFTABLES=1 USE_SYSTEMD="$(option systemd 1 0)" \
         WAYDROID_DIR="/usr/${target}/lib/waydroid" \
         BIN_DIR="/usr/${target}/bin" SYSD_DIR="${SYSTEMDSYSTEMUNITDIR}"
     edo sed -i "1c#! /usr/${target}/bin/python$(python_get_abi)" \
         "${IMAGE}/usr/${target}/lib/waydroid/waydroid.py"
+    if option systemd; then
+        edo sed -i "s@/usr/bin/waydroid@/usr/${target}/bin/waydroid@" \
+            "${IMAGE}${SYSTEMDSYSTEMUNITDIR}/waydroid-container.service"
+    fi
     edo sed -i "s@/usr/bin/waydroid@/usr/${target}/bin/waydroid@" \
-        "${IMAGE}${SYSTEMDSYSTEMUNITDIR}/waydroid-container.service" \
         "${IMAGE}/usr/share/dbus-1/system-services/id.waydro.Container.service"
     edo rm "${IMAGE}/usr/share/applications/waydroid.app.install.desktop" \
         "${IMAGE}/usr/share/applications/waydroid.market.desktop"

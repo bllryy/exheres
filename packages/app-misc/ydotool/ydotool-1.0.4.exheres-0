@@ -10,20 +10,22 @@ DOWNLOADS="${HOMEPAGE}/archive/v${PV}.tar.gz -> ${PNV}.tar.gz"
 LICENCES="AGPL-3+"
 SLOT="0"
 PLATFORMS="~amd64"
+MYOPTIONS="systemd"
 
 DEPENDENCIES="
     build:
         app-doc/scdoc
         dev-util/pkgconf
         sys-kernel/linux-headers
-
-    run:
-        sys-apps/systemd
 "
 
 CMAKE_SRC_CONFIGURE_PARAMS=( -DCMAKE_POLICY_VERSION_MINIMUM=3.5 )
 
 src_prepare() {
     default
-    edo sed -i "/^add_subdirectory(Daemon)/i set(SD_UNITDIR \"${SYSTEMDUSERUNITDIR}\")" "${CMAKE_SOURCE}/CMakeLists.txt"
+    if option systemd; then
+        edo sed -i "/^add_subdirectory(Daemon)/i set(SD_UNITDIR \"${SYSTEMDUSERUNITDIR}\")" "${CMAKE_SOURCE}/CMakeLists.txt"
+    else
+        edo sed -i '/^add_subdirectory(Daemon)/d' "${CMAKE_SOURCE}/CMakeLists.txt"
+    fi
 }

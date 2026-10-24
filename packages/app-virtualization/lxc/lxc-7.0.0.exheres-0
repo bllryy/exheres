@@ -10,7 +10,7 @@ DOWNLOADS="https://github.com/lxc/lxc/releases/download/v${PV}/${PNV}.tar.gz"
 LICENCES="GPL-2 LGPL-2.1+"
 SLOT="0"
 PLATFORMS="~amd64"
-MYOPTIONS="examples io_uring"
+MYOPTIONS="examples io_uring systemd"
 
 DEPENDENCIES="
     build:
@@ -20,7 +20,7 @@ DEPENDENCIES="
     build+run:
         dev-libs/openssl:=
         sys-apps/dbus
-        sys-apps/systemd
+        systemd? ( sys-apps/systemd )
         sys-libs/libcap
         sys-libs/libseccomp[>=2.5.0]
         sys-libs/pam
@@ -30,7 +30,6 @@ DEPENDENCIES="
 MESON_SRC_CONFIGURE_PARAMS=(
     -Ddistrosysconfdir=/etc/lxc
     -Dsystemd-unitdir="${SYSTEMDSYSTEMUNITDIR}"
-    -Dinit-script=systemd
     -Dapparmor=false
     -Dselinux=false
     -Dcoverity-build=false
@@ -56,6 +55,10 @@ src_prepare() {
     # docbook2man does not support the encoding option.
     edo sed -e "/sgml2man, /s/'--encoding=UTF-8', //" \
         -i doc/{,ja/,ko/}meson.build
+}
+
+src_configure() {
+    meson_src_configure -Dinit-script="$(option systemd systemd '')"
 }
 
 src_install() {

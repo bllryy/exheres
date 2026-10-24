@@ -9,6 +9,7 @@ SUMMARY="sched_ext BPF schedulers and tools"
 LICENCES="GPL-2"
 SLOT="0"
 PLATFORMS="~amd64"
+MYOPTIONS="systemd"
 
 DEPENDENCIES+="
     build:
@@ -21,9 +22,6 @@ DEPENDENCIES+="
         sys-libs/libseccomp
         sys-libs/zlib
         app-arch/zstd
-
-    run:
-        sys-apps/systemd
 "
 
 SCX_BINARIES=(
@@ -76,7 +74,9 @@ src_install() {
         doexe "target/$(rust_target_arch_name)/release/${binary}"
     done
 
-    install_systemd_files
+    if option systemd ; then
+        install_systemd_files
+    fi
     insinto /etc/default
     doins services/scx
 

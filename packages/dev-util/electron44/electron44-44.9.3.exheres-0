@@ -23,7 +23,6 @@ DEPENDENCIES="
         media-libs/fontconfig
         net-print/cups
         sys-apps/dbus
-        sys-apps/systemd
         sys-sound/alsa-lib
         x11-dri/libdrm
         x11-dri/mesa

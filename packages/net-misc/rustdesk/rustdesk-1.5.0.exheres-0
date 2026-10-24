@@ -12,6 +12,7 @@ LICENCES="AGPL-3"
 SLOT="0"
 PLATFORMS="~amd64"
 RESTRICT="mirror strip test"
+MYOPTIONS="systemd [[ description = [ Install systemd service integration ] ]]"
 
 DEPENDENCIES="
     run:
@@ -22,7 +23,7 @@ DEPENDENCIES="
         media/pipewire[gstreamer]
         net-misc/curl
         sys-apps/dbus
-        sys-apps/systemd
+        systemd? ( sys-apps/systemd )
         sys-libs/wayland
         sys-sound/alsa-lib
         x11-apps/xdotool
@@ -70,7 +71,11 @@ src_install() {
 
     dodir /usr/$(exhost --target)/bin
     dosym /usr/share/rustdesk/rustdesk /usr/$(exhost --target)/bin/rustdesk
-    install_systemd_files
+    if option systemd ; then
+        install_systemd_files
+    else
+        edo rm -r "${IMAGE}/usr/share/rustdesk/files/systemd"
+    fi
 }
 
 pkg_postinst() {

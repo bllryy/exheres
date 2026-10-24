@@ -11,14 +11,17 @@ DOWNLOADS="${HOMEPAGE}/archive/refs/tags/${PV}.tar.gz -> ${PNV}.tar.gz"
 LICENCES="GPL-3"
 SLOT="0"
 PLATFORMS="~amd64"
-MYOPTIONS="zram"
+MYOPTIONS="
+    systemd
+    zram [[ requires = [ systemd ] ]]
+"
 
 DEPENDENCIES="
     run:
         app-shells/bash
         sys-apps/hdparm
         sys-apps/pciutils
-        sys-apps/systemd
+        systemd? ( sys-apps/systemd )
         sys-process/procps
         zram? (
             app-arch/zstd
@@ -29,8 +32,10 @@ DEPENDENCIES="
 WORK="${WORKBASE}/CachyOS-Settings-${PV}"
 
 src_prepare() {
-    edo sed -i "s@ExecStart=/usr/bin/pci-latency@ExecStart=/usr/$(exhost --target)/bin/pci-latency@" \
-        usr/lib/systemd/system/pci-latency.service
+    if option systemd; then
+        edo sed -i "s@ExecStart=/usr/bin/pci-latency@ExecStart=/usr/$(exhost --target)/bin/pci-latency@" \
+            usr/lib/systemd/system/pci-latency.service
+    fi
 }
 
 src_compile() {
@@ -42,7 +47,11 @@ src_install() {
     doins etc/security/limits.d/20-audio.conf
 
     exeinto /usr/$(exhost --target)/bin
-    doexe usr/bin/{dlss-swapper,dlss-swapper-dll,pci-latency,zink-run,game-performance,kerver}
+    doexe usr/bin/{dlss-swapper,dlss-swapper-dll,pci-latency,zink-run,kerver}
+    # game-performance invokes systemd-inhibit; do not install a broken launcher.
+    if option systemd; then
+        doexe usr/bin/game-performance
+    fi
 
     insinto /usr/$(exhost --target)/lib/modprobe.d
     doins usr/lib/modprobe.d/{amdgpu,blacklist,nvidia}.conf
@@ -53,28 +62,31 @@ src_install() {
     insinto /usr/$(exhost --target)/lib/sysctl.d
     doins usr/lib/sysctl.d/70-cachyos-settings.conf
 
-    local systemd_dir="/usr/$(exhost --target)/lib/systemd"
-    insinto "${systemd_dir}/journald.conf.d"
-    doins usr/lib/systemd/journald.conf.d/00-journal-size.conf
+    if option systemd; then
+        local systemd_dir="/usr/$(exhost --target)/lib/systemd"
+        insinto "${systemd_dir}/journald.conf.d"
+        doins usr/lib/systemd/journald.conf.d/00-journal-size.conf
 
-    insinto "${systemd_dir}/system.conf.d"
-    doins usr/lib/systemd/system.conf.d/{00-timeout,10-limits}.conf
+        insinto "${systemd_dir}/system.conf.d"
+        doins usr/lib/systemd/system.conf.d/{00-timeout,10-limits}.conf
 
-    install_systemd_files
+        install_systemd_files
 
-    insinto "${SYSTEMDSYSTEMUNITDIR}"
-    doins -r usr/lib/systemd/system/{rtkit-daemon,user@}.service.d
-    doins -r usr/lib/systemd/system/{session.slice,system.slice,user-.slice}.d
+        insinto "${SYSTEMDSYSTEMUNITDIR}"
+        doins -r usr/lib/systemd/system/{rtkit-daemon,user@}.service.d
+        doins -r usr/lib/systemd/system/{session.slice,system.slice,user-.slice}.d
 
-    insinto "${systemd_dir}/user.conf.d"
-    doins usr/lib/systemd/user.conf.d/{00-timeout,10-limits}.conf
+        insinto "${systemd_dir}/user.conf.d"
+        doins usr/lib/systemd/user.conf.d/{00-timeout,10-limits}.conf
 
-    if option zram; then
-        insinto "${systemd_dir}"
-        doins usr/lib/systemd/zram-generator.conf
+        if option zram; then
+            insinto "${systemd_dir}"
+            doins usr/lib/systemd/zram-generator.conf
 
-        insinto "${UDEVRULESDIR}"
-        doins usr/lib/udev/rules.d/30-zram.rules
+            insinto "${UDEVRULESDIR}"
+            doins usr/lib/udev/rules.d/30-zram.rules
+        fi
+
     fi
 
     insinto "${SYSTEMDTMPFILESDIR}"

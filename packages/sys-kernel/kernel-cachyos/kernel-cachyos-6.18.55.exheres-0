@@ -33,7 +33,6 @@ DEPENDENCIES="
         dev-libs/xxHash
         dev-util/dwarves
         dev-util/elfutils
-        sys-apps/systemd
         sys-boot/dracut
         sys-devel/binutils
         sys-devel/lld

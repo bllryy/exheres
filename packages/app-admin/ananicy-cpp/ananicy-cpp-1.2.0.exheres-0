@@ -10,6 +10,7 @@ DOWNLOADS="${HOMEPAGE}/-/archive/v${PV}/${PN}-v${PV}.tar.bz2 -> ${PNV}.tar.bz2"
 LICENCES="GPL-3"
 SLOT="0"
 PLATFORMS="~amd64"
+MYOPTIONS="systemd"
 
 DEPENDENCIES="
     build:
@@ -18,7 +19,7 @@ DEPENDENCIES="
     build+run:
         dev-libs/fmt[>=8]
         dev-libs/spdlog[>=1.9]
-        sys-apps/systemd
+        systemd? ( sys-apps/systemd )
 
     suggestion:
         app-admin/ananicy-rules-cachyos [[ description = [ CachyOS rules and configuration ] ]]
@@ -26,8 +27,9 @@ DEPENDENCIES="
 
 CMAKE_SOURCE="${WORKBASE}/${PN}-v${PV}"
 
+CMAKE_SRC_CONFIGURE_OPTION_ENABLES=( "systemd SYSTEMD" )
+
 CMAKE_SRC_CONFIGURE_PARAMS=(
-    -DENABLE_SYSTEMD=ON
     -DUSE_BPF_PROC_IMPL=OFF
     -DUSE_EXTERNAL_FMTLIB=ON
     -DUSE_EXTERNAL_JSON=ON
@@ -38,9 +40,11 @@ CMAKE_SRC_CONFIGURE_PARAMS=(
 
 src_prepare() {
     cmake_src_prepare
+    if option systemd ; then
+        edo sed -i '/#include <systemd\/sd-login.h>/a #include <unistd.h>' src/platform/systemd/service.cpp
+    fi
     edo sed -i '/#include <string_view>/a #include <unistd.h>' src/platform/linux/debug.cpp
     edo sed -i '/#include <thread>/a #include <unistd.h>' src/platform/linux/process.cpp
-    edo sed -i '/#include <systemd\/sd-login.h>/a #include <unistd.h>' src/platform/systemd/service.cpp
     edo sed -i '/#include <cstdlib>/a #include <cstdint>' src/platform/linux/backtrace.cpp
     edo sed -i '/#include <cstdlib>/a #include <cstring>' src/utility/argument_parsing/argument.cpp
     edo sed -i '/#include <cerrno>/a #include <cstring>' src/platform/linux/singleton_process.cpp

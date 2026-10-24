@@ -10,6 +10,7 @@ DOWNLOADS="${HOMEPAGE}/${PV%.*}/${PV}/+download/${PNV}.tar.gz"
 LICENCES="GPL-3"
 SLOT="0"
 PLATFORMS="~amd64"
+MYOPTIONS="systemd"
 RESTRICT="test"
 
 DEPENDENCIES="
@@ -46,7 +47,9 @@ src_install() {
 
     insinto /usr/share/bash-completion/completions
     newins shell-completion/bash ufw
-    install_systemd_files
+    if option systemd ; then
+        install_systemd_files
+    fi
     keepdir /etc/ufw/user
     dodoc README
     python_bytecompile
