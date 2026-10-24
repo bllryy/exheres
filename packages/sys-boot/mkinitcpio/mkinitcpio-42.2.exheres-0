@@ -88,4 +88,7 @@ src_install() {
     insinto /usr/share/doc/${PNVR}/examples
     doins "${IMAGE}/etc/mkinitcpio.conf"
     edo rm "${IMAGE}/etc/mkinitcpio.conf"
+
+    keepdir /etc/initcpio/{hooks,install,post} /etc/mkinitcpio{.conf.d,.d} \
+        /usr/$(exhost --target)/lib/initcpio/post
 }
