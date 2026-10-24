@@ -40,6 +40,7 @@ src_configure() {
         --sbindir=/usr/$(exhost --target)/bin \
         --mandir=/usr/share/man \
         --syscontrolsocket=/run/dinitctl \
+        --shutdown-prefix=dinit. \
         --disable-strip \
         $(option_enable caps capabilities) \
         $(option_enable cgroups) \
@@ -56,6 +57,8 @@ src_install() {
         alternatives+=( /usr/share/man/man8/init.8 ${PN}.init.8 )
         dosym dinit.8 /usr/share/man/man8/init.8
         for tool in shutdown halt reboot poweroff soft-reboot; do
+            edo mv "${IMAGE}"/usr/${host}/bin/${PN}.${tool} "${IMAGE}"/usr/${host}/bin/${tool}
+            edo mv "${IMAGE}"/usr/share/man/man8/${PN}.${tool}.8 "${IMAGE}"/usr/share/man/man8/${tool}.8
             alternatives+=(
                 /usr/${host}/bin/${tool} ${PN}.${tool}
                 /usr/share/man/man8/${tool}.8 ${PN}.${tool}.8
