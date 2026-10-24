@@ -1,0 +1,4 @@
+type = scripted
+command = /etc/dinit.d/helpers/console-preflight
+log-type = buffer
+restart = false

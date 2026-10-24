@@ -1,0 +1,25 @@
+#!/bin/sh
+# Deliberately verify initramfs handoff, never mount over inherited filesystems.
+set -eu
+PATH=/usr/x86_64-pc-linux-gnu/bin:/usr/bin:/bin
+export PATH
+fail() { printf '%s\n' "console-preflight: $*" >&2; exit 1; }
+[ "$#" -eq 0 ] || fail 'no arguments accepted'
+for entry in '/proc proc' '/sys sysfs' '/dev devtmpfs' '/run tmpfs'; do
+    set -- $entry
+    actual=$(findmnt -rn -M "$1" -o FSTYPE) || fail "$1 not mounted"
+    [ "$actual" = "$2" ] || fail "$1 expected $2, found $actual"
+done
+[ -S /run/dinitctl ] || fail '/run/dinitctl missing; verify PID1 socket setup'
+[ "$(findmnt -rn -M / -o FSTYPE)" = xfs ] || fail 'only inherited XFS root supported'
+options=$(findmnt -rn -M / -o OPTIONS) || fail 'cannot inspect root'
+case ,$options, in *,rw,*) ;; *) fail 'root read-only; offline check/remount policy unresolved' ;; esac
+for entry in '/dev/pts devpts' '/dev/shm tmpfs'; do
+    set -- $entry
+    actual=$(findmnt -rn -M "$1" -o FSTYPE) || fail "$1 must be inherited from initramfs"
+    [ "$actual" = "$2" ] || fail "$1 expected $2, found $actual"
+    options=$(findmnt -rn -M "$1" -o VFS-OPTIONS) || fail "cannot inspect $1"
+    case ,$options, in *,rw,*) ;; *) fail "$1 is not writable" ;; esac
+done
+[ -c /dev/console ] && [ -c /dev/tty1 ] || fail 'console devices unavailable'
+# No mount -a, swap activation, root fsck, or shutdown side effects here.

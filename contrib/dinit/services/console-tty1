@@ -1,0 +1,7 @@
+type = process
+command = /usr/x86_64-pc-linux-gnu/bin/agetty --noclear tty1 linux
+inittab-id = 1
+inittab-line = tty1
+options = runs-on-console
+restart = true
+depends-on: console-udev-settle
