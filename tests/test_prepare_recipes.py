@@ -38,6 +38,22 @@ class RecipePreparation(unittest.TestCase):
         self.git.start()
         self.addCleanup(self.git.stop)
 
+    def test_tar_gz_checksum_source_matches_download(self):
+        recipe = ('DOWNLOADS="https://example.org/${PV}.tar.gz -> ${PNV}.tar.gz"\n'
+                  + GUARD.replace(".deb", ".tar.gz"))
+        url, guard, unversioned = updater.checksum_url(recipe, "pnpm", "12.15.0")
+        self.assertEqual(url, "https://example.org/12.15.0.tar.gz")
+        self.assertEqual(guard.group(1), "a" * 64)
+        self.assertFalse(unversioned)
+
+    def test_tar_gz_checksum_source_mismatch_fails_closed(self):
+        for download_suffix, checksum_suffix in ((".tar.gz", ".deb"), (".deb", ".tar.gz")):
+            recipe = (f'DOWNLOADS="https://example.org/${{PV}}{download_suffix} -> '
+                      f'${{PNV}}{download_suffix}"\n' + GUARD.replace(".deb", checksum_suffix))
+            with self.subTest(download=download_suffix, checksum=checksum_suffix):
+                with self.assertRaisesRegex(updater.PreparationError, "Checksum source does not match download"):
+                    updater.checksum_url(recipe, "pnpm", "12.15.0")
+
     def test_rename_keeps_bytes_without_download(self):
         original = self.source.read_bytes()
         with patch.object(updater, "download_checksum") as download:

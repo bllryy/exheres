@@ -112,6 +112,19 @@ class PreviewTests(unittest.TestCase):
         self.assertIn(name, calls)
         self.assertEqual(rows[name][0], "update")
 
+    def test_detailed_error_survives_no_result(self):
+        name = "app-misc/other"
+        detail = "HTTP 599: Failed to connect to upstream:443"
+        for errors in ((detail, None), (None, detail)):
+            events = [json.dumps({
+                "name": name, "level": "error",
+                "event": "unexpected error happened" if index == 0 else "no-result",
+                "error": error,
+            }) for index, error in enumerate(errors)]
+            with self.subTest(errors=errors), patch.object(updater.subprocess, "run", return_value=
+                    subprocess.CompletedProcess([], 3, "\n".join(events), "")):
+                self.assertEqual(updater.check_entry(name, self.config), (None, detail, False))
+
     def test_status_three_cannot_cache_unassigned_failure(self):
         name = "app-misc/one"
         good = json.dumps({"name": name, "level": "info", "event": "updated", "version": "1.1"})
