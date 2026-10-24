@@ -1,13 +1,13 @@
 # Copyright 2026 Gurov <thuggerthugger1@duck.com>
 # Distributed under the terms of the GNU General Public License v2
 
-SUMMARY="Prebuilt CachyOS Linux kernel with matching module headers"
+SUMMARY="Prebuilt CachyOS LTS Linux kernel with matching module headers"
 HOMEPAGE="https://github.com/CachyOS/linux-cachyos"
 
-MY_RELEASE="${PV}-3"
-MY_KERNEL="linux-cachyos-${MY_RELEASE}-x86_64_v3.pkg.tar.zst"
-MY_HEADERS="linux-cachyos-headers-${MY_RELEASE}-x86_64_v3.pkg.tar.zst"
-KERNEL_RELEASE="${MY_RELEASE}-cachyos"
+MY_RELEASE="${PV}-2"
+MY_KERNEL="linux-cachyos-lts-${MY_RELEASE}-x86_64_v3.pkg.tar.zst"
+MY_HEADERS="linux-cachyos-lts-headers-${MY_RELEASE}-x86_64_v3.pkg.tar.zst"
+KERNEL_RELEASE="${MY_RELEASE}-cachyos-lts"
 DOWNLOADS="
     https://cdn.cachyos.org/repo/x86_64_v3/cachyos-v3/${MY_KERNEL}
     https://cdn.cachyos.org/repo/x86_64_v3/cachyos-v3/${MY_HEADERS}
@@ -56,8 +56,8 @@ src_unpack() {
     local archive checksum expected
     for archive in "${MY_KERNEL}" "${MY_HEADERS}"; do
         case ${archive} in
-            "${MY_KERNEL}") expected=f9468c103a0870eaa20abbe780001aa51fa6091e9d54786035d38d3b49a1b11d ;;
-            "${MY_HEADERS}") expected=0371de8095065374e0f7929f44c13f85a22d6c3b5a99af0ef3c25a86f635af6c ;;
+            "${MY_KERNEL}") expected=81db4f00ba9d78ff18b2fc0847b46828255605a535140cd15443614a9ab59b31 ;;
+            "${MY_HEADERS}") expected=ab824b2cdc11b898f267c7f2d1f4e4f22f4bd77e6d0ae927759c59ffd1b55b09 ;;
         esac
         checksum=$(sha256sum "${FETCHEDDIR}/${archive}") || die "Cannot checksum ${archive}"
         [[ ${checksum%% *} == ${expected} ]] || die "CachyOS archive changed: ${archive}"
