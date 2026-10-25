@@ -1,0 +1,6 @@
+type = bgprocess
+command = /etc/dinit.d/helpers/console-dbus
+pid-file = /run/dbus.pid
+working-dir = /
+depends-on: local-mounts
+depends-on: loopback

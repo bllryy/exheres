@@ -4,4 +4,8 @@ inittab-id = 1
 inittab-line = tty1
 options = runs-on-console
 restart = true
-depends-on: console-udev-settle
+depends-on: local-mounts
+depends-on = turnstile-ready
+restart-delay = 2
+restart-limit-interval = 60
+restart-limit-count = 5

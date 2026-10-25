@@ -1,0 +1,7 @@
+#!/bin/sh
+set -eu
+PATH=/usr/x86_64-pc-linux-gnu/bin:/usr/bin:/bin
+export PATH
+[ "$#" -eq 0 ] || exit 1
+udevadm trigger --type=subsystems --action=add
+exec udevadm trigger --type=devices --action=add

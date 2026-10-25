@@ -1,5 +1,0 @@
-type = scripted
-command = /usr/x86_64-pc-linux-gnu/bin/udevadm trigger --type=all --action=add --prioritized-subsystem=module,block,tpmrm,net,tty,input
-log-type = buffer
-restart = false
-depends-on: console-udev-ready

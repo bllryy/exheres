@@ -1,0 +1,3 @@
+type = scripted
+command = /usr/host/bin/install -d -o 0 -g 0 -m 0755 /run/ydotoold
+depends-on: local-mounts

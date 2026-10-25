@@ -1,0 +1,6 @@
+#!/bin/sh
+# Verified Exherbo iproute2 executable; never tear loopback down on stop.
+set -eu
+
+[ "$#" -eq 0 ] || { printf '%s\n' 'console-loopback: no arguments expected' >&2; exit 2; }
+exec /usr/x86_64-pc-linux-gnu/bin/ip link set dev lo up

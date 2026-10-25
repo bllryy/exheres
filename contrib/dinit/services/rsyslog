@@ -1,0 +1,7 @@
+type = process
+command = /etc/dinit.d/helpers/console-rsyslog
+depends-on = local-mounts
+restart = true
+restart-delay = 2
+restart-limit-interval = 60
+restart-limit-count = 5

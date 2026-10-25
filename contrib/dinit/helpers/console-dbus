@@ -1,0 +1,24 @@
+#!/bin/sh
+# Exherbo system bus candidate. Chimera reference: main/dbus/files/dbus-daemon.
+# Probe protocol readiness; stock fork completion and print-address occur too early.
+set -eu
+PATH=/usr/x86_64-pc-linux-gnu/bin:/usr/bin:/bin
+export PATH
+
+fail() {
+    printf '%s\n' "console-dbus: $*" >&2
+    exit 1
+}
+
+[ "$#" -eq 0 ] || fail 'no arguments accepted'
+# Never replace a live socket or remove a possibly live daemon pidfile.
+[ ! -e /run/dbus/system_bus_socket ] || fail 'system bus socket already exists'
+[ ! -L /run/dbus/system_bus_socket ] || fail 'system bus socket is a symlink'
+[ ! -e /run/dbus.pid ] || fail 'system bus pidfile already exists'
+[ ! -L /run/dbus.pid ] || fail 'system bus pidfile is a symlink'
+# Machine identity must be provisioned offline, not generated during boot.
+[ -s /var/lib/dbus/machine-id ] || fail '/var/lib/dbus/machine-id missing or empty'
+[ ! -L /run/dbus ] || fail '/run/dbus must not be a symlink'
+umask 022
+mkdir -p -m 0755 /run/dbus
+exec dbus-daemon --system --fork

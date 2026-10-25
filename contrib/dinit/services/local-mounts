@@ -1,0 +1,9 @@
+type = scripted
+command = /etc/dinit.d/helpers/console-local-mounts
+log-type = file
+logfile = /var/log/console-local-mounts.log
+logfile-permissions = 0600
+logfile-uid = 0
+logfile-gid = 0
+restart = false
+depends-on: udev-settle

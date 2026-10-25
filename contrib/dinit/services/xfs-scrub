@@ -1,0 +1,4 @@
+type = scripted
+command = /usr/x86_64-pc-linux-gnu/bin/env -u SERVICE_MODE /usr/x86_64-pc-linux-gnu/bin/xfs_scrub_all --auto-media-scan-interval=30d
+depends-on = xfs-runtime
+start-timeout = 0

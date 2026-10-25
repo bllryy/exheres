@@ -1,0 +1,4 @@
+type = scripted
+command = /usr/x86_64-pc-linux-gnu/bin/fstrim --listed-in /etc/fstab:/proc/self/mountinfo --verbose --quiet-unsupported
+depends-on = local-mounts
+start-timeout = 0

@@ -1,0 +1,77 @@
+#!/usr/bin/python3 -I
+"""Candidate runtime/readiness/marker helper; requires installed Python 3 stdlib."""
+import os
+import socket
+import stat
+import sys
+import time
+from pathlib import Path
+
+RUNTIME = Path('/run/user')
+MARKER = Path('/run/console-turnstile-ready')
+SOCKET = '/run/turnstiled/control.sock'
+
+
+def marked():
+    try:
+        info = MARKER.lstat()
+        return (stat.S_ISREG(info.st_mode) and info.st_uid == 0
+                and info.st_gid == 0 and stat.S_IMODE(info.st_mode) == 0o600
+                and info.st_nlink == 1)
+    except FileNotFoundError:
+        return False
+
+
+def runtime():
+    RUNTIME.mkdir(mode=0o755, exist_ok=True)
+    info = RUNTIME.lstat()
+    if not stat.S_ISDIR(info.st_mode) or info.st_uid != 0 or info.st_gid != 0:
+        raise RuntimeError('/run/user must be a root-owned real directory')
+    os.chmod(RUNTIME, 0o755)
+
+
+def ready():
+    # Never retain a marker from an earlier failed readiness attempt.
+    MARKER.unlink(missing_ok=True)
+    deadline = time.monotonic() + 15
+    while time.monotonic() < deadline:
+        try:
+            with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as client:
+                client.settimeout(min(0.5, max(0.001, deadline - time.monotonic())))
+                client.connect(SOCKET)
+            fd = os.open(MARKER, os.O_WRONLY | os.O_CREAT | os.O_EXCL | os.O_NOFOLLOW, 0o600)
+            try:
+                os.fchown(fd, 0, 0)
+                os.fchmod(fd, 0o600)
+            finally:
+                os.close(fd)
+            return
+        except (ConnectionError, FileNotFoundError, socket.timeout):
+            time.sleep(0.1)
+    raise RuntimeError('Turnstile control socket not ready within 15 seconds')
+
+
+def main(action):
+    if action == 'marked':
+        # pam_exec calls both open_session and close_session. Marker stays until
+        # service shutdown; do not gate close_session on current socket health.
+        return 0 if marked() else 1
+    if os.geteuid() != 0:
+        raise RuntimeError('root required')
+    if action == 'runtime':
+        runtime()
+    elif action == 'ready':
+        ready()
+    elif action == 'stop':
+        MARKER.unlink(missing_ok=True)
+    else:
+        raise ValueError('expected runtime, ready, stop, or marked')
+    return 0
+
+
+if __name__ == '__main__':
+    try:
+        sys.exit(main(sys.argv[1] if len(sys.argv) == 2 else ''))
+    except (OSError, RuntimeError, ValueError) as error:
+        print('console-turnstile: ' + str(error), file=sys.stderr)
+        sys.exit(1)

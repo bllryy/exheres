@@ -1,0 +1,20 @@
+#!/bin/sh
+# Optional file must be trusted shell assignments, not arbitrary systemd syntax.
+set -eu
+OPTIONS=
+config=/etc/sysconfig/chronyd
+if [ -e "$config" ]; then
+    # Never source a non-root-owned or group/world-writable options file.
+    metadata=$(/usr/host/bin/stat -Lc '%u %a' -- "$config")
+    owner=${metadata%% *}
+    mode=${metadata#* }
+    if [ "$owner" != 0 ] || [ "$((0$mode & 022))" -ne 0 ] || [ ! -f "$config" ]; then
+        printf '%s\n' 'console-chronyd: unsafe options file' >&2
+        exit 1
+    fi
+    . "$config"
+fi
+# Match whitespace-separated OPTIONS; never evaluate option text or expand globs.
+set -f
+# shellcheck disable=SC2086
+exec /usr/sbin/chronyd -n $OPTIONS

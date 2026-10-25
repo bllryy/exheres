@@ -2,4 +2,4 @@ type = scripted
 command = /etc/dinit.d/helpers/console-udev-ready
 log-type = buffer
 restart = false
-depends-on: console-udevd
+depends-on: udevd

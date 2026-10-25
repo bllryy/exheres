@@ -1,0 +1,9 @@
+type = scripted
+command = /etc/dinit.d/helpers/console-uinput
+log-type = file
+logfile = /var/log/console-uinput.log
+logfile-permissions = 0600
+logfile-uid = 0
+logfile-gid = 0
+restart = false
+depends-on: udev-settle

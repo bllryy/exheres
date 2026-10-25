@@ -1,0 +1,9 @@
+type = process
+command = /bin/sh /etc/dinit.d/helpers/console-chronyd
+log-type = buffer
+restart = true
+depends-on: local-mounts
+depends-on: loopback
+restart-delay = 2
+restart-limit-interval = 60
+restart-limit-count = 5

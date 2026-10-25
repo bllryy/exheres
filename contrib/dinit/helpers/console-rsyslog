@@ -1,0 +1,22 @@
+#!/usr/bin/env python3
+"""Refuse an existing syslog endpoint before rsyslog can unlink it."""
+import os
+import sys
+
+BINARY = '/usr/x86_64-pc-linux-gnu/bin/rsyslogd'
+ARGV = [BINARY, '-n', '-i', '/run/rsyslogd.pid', '-f', '/etc/dinit.d/rsyslog.conf']
+
+
+def main():
+    # lexists includes dangling symlinks. Competing socket activation must stay off;
+    # this preflight cannot prevent another manager racing to create /dev/log.
+    if os.path.lexists('/dev/log'):
+        raise RuntimeError('/dev/log already exists; stop competing logger/socket before starting rsyslog')
+    os.execv(BINARY, ARGV)
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, RuntimeError) as error:
+        sys.exit(str(error))

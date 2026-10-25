@@ -1,0 +1,12 @@
+type = process
+command = /etc/dinit.d/helpers/console-mullvad
+options = signal-process-only
+stop-timeout = 15
+restart = true
+restart-delay = 1
+restart-limit-count = 5
+restart-limit-interval = 20
+depends-on: local-mounts
+depends-on: mullvad-early-blocking
+log-type = buffer
+depends-on: cgroups

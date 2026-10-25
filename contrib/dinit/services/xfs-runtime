@@ -1,0 +1,3 @@
+type = scripted
+command = /etc/dinit.d/helpers/console-xfs-runtime
+depends-on = local-mounts

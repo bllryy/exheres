@@ -1,0 +1,14 @@
+type = process
+command = /usr/x86_64-pc-linux-gnu/bin/dhcpcd --nobackground --timeout 0 --env resolvconf=/dev/null --allowinterfaces en*
+log-type = buffer
+restart = true
+depends-on: local-mounts
+depends-on: loopback
+depends-on: udev-settle
+depends-on: hostname
+depends-on: sysctl
+depends-on: mullvad-early-blocking
+depends-on: mullvad
+restart-delay = 2
+restart-limit-interval = 60
+restart-limit-count = 5

@@ -1,0 +1,91 @@
+#!/usr/bin/python3
+"""Mount cgroup2 plus Mullvad's v1 net_cls; never unmount or move processes.
+
+Sources: mullvadvpn-app tag 2026.5, talpid-cgroup/src/{lib,v1,v2}.rs;
+Chimera dinit early/scripts/cgroups.sh (cgroup2 root with nsdelegate).
+Keep net_cls beside, not inside, cgroup2: its directories represent cgroups.
+Mullvad discovers the separate v1 mount via /proc/mounts.
+"""
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+
+def unescape(value):
+    return re.sub(r'\\([0-7]{3})', lambda m: chr(int(m[1], 8)), value)
+
+
+def mount_table(path):
+    result = {}
+    for line in path.read_text().splitlines():
+        fields = line.split()
+        if len(fields) < 4:
+            raise RuntimeError('malformed mount table')
+        target = Path(unescape(fields[1]))
+        result.setdefault(target, []).append(
+            (fields[2], set(fields[3].split(','))))
+    return result
+
+
+def safe_directory(path):
+    for part in (*reversed(path.parents), path):
+        if part.is_symlink():
+            raise RuntimeError(f'symlink in mount path: {part}')
+    if path.exists() and not path.is_dir():
+        raise RuntimeError(f'not a directory: {path}')
+
+
+def initialize(root=Path('/sys/fs/cgroup'), legacy=Path('/run/cgroup-net-cls'),
+               mounts=Path('/proc/mounts')):
+    table = mount_table(mounts)
+    for path, entries in table.items():
+        if len(entries) > 1 and (path in (root, legacy) or
+                                any(kind in ('cgroup', 'cgroup2')
+                                    for kind, _ in entries)):
+            raise RuntimeError(f'stacked cgroup mount at {path}')
+    for path in (root, legacy):
+        safe_directory(path)
+    if root in table and (table[root][0][0] != 'cgroup2' or 'rw' not in table[root][0][1]):
+        raise RuntimeError(f'expected writable cgroup2 at {root}')
+    if legacy in table and (table[legacy][0][0] != 'cgroup' or
+                            not {'net_cls', 'rw'} <= table[legacy][0][1]):
+        raise RuntimeError(f'expected writable net_cls at {legacy}')
+    existing = [p for p, entries in table.items()
+                for kind, opts in entries
+                if kind == 'cgroup' and 'net_cls' in opts]
+    for path in existing:
+        safe_directory(path)
+        if 'rw' not in table[path][0][1]:
+            raise RuntimeError(f'read-only net_cls at {path}')
+    # Validate both targets before making any mounts. Preserve valid mounts.
+    needed = []
+    if root not in table:
+        needed.append((root, 'cgroup2', 'nsdelegate', 'cgroup2'))
+    if not existing:
+        needed.append((legacy, 'cgroup', 'net_cls', 'net_cls'))
+    for path, kind, options, source in needed:
+        if path.exists() and any(path.iterdir()):
+            raise RuntimeError(f'refusing to cover nonempty directory: {path}')
+    for path, kind, options, source in needed:
+        if path == root:
+            if not path.is_dir():
+                raise RuntimeError(f'kernel cgroup mountpoint missing: {path}')
+        else:
+            path.mkdir(exist_ok=True)
+        subprocess.run(['/usr/host/bin/mount', '-t', kind, '-o',
+                        'nosuid,nodev,noexec,' + options, source, str(path)], check=True)
+        actual = mount_table(mounts).get(path)
+        if actual is None or len(actual) != 1 or actual[0][0] != kind or 'rw' not in actual[0][1] or (
+                kind == 'cgroup' and 'net_cls' not in actual[0][1]):
+            raise RuntimeError(f'mount verification failed: {path}')
+
+
+if __name__ == '__main__':
+    try:
+        if len(sys.argv) != 1:
+            raise RuntimeError('no arguments accepted')
+        initialize()
+    except (OSError, RuntimeError, subprocess.CalledProcessError) as error:
+        print(f'console-cgroups: {error}', file=sys.stderr)
+        sys.exit(1)

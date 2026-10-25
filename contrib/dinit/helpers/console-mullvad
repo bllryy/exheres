@@ -1,0 +1,90 @@
+#!/usr/host/bin/python3
+"""Mullvad supervisor: USR1 restarts with lockdown, TERM/INT stop normally.
+
+Use dinitctl signal USR1 console-mullvad, NOT dinitctl restart, for protected
+restarts. No readiness or connected-tunnel guarantee. Never clears firewall.
+"""
+import os
+import signal
+import subprocess
+import sys
+import time
+
+# Below service stop-timeout (15s). SIGKILL fallback cannot confirm lockdown.
+SIGNAL_TIMEOUT = 5
+
+DAEMON = '/usr/x86_64-pc-linux-gnu/bin/mullvad-daemon'
+RESOURCE = '/opt/Mullvad VPN/resources/'
+
+
+def supervise(command, resource):
+    pending = []
+    def receive(signum, _frame):
+        pending.append(signum)
+    for signum in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP, signal.SIGQUIT, signal.SIGUSR1):
+        signal.signal(signum, receive)
+    if not os.path.isdir(resource):
+        raise ValueError('Mullvad resource directory unavailable')
+    env = dict(os.environ, MULLVAD_RESOURCE_DIR=resource, TALPID_DNS_MODULE="static")
+    while True:
+        child = subprocess.Popen(command, env=env)
+        try:
+            restart = False
+            stopping = False
+            deadline = None
+            while child.poll() is None:
+                while pending:
+                    signum = pending.pop(0)
+                    if signum in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP, signal.SIGQUIT):
+                        if deadline is None:
+                            deadline = time.monotonic() + SIGNAL_TIMEOUT
+                        stopping = True
+                        restart = False
+                        try:
+                            child.send_signal(signal.SIGTERM)
+                        except ProcessLookupError:
+                            pass
+                    elif not stopping and not restart:
+                        restart = True
+                        deadline = time.monotonic() + SIGNAL_TIMEOUT
+                        try:
+                            child.send_signal(signal.SIGUSR1)
+                        except ProcessLookupError:
+                            pass
+                if deadline is not None and time.monotonic() >= deadline:
+                    print('console-mullvad: signal timeout; killing child; lockdown unconfirmed', file=sys.stderr)
+                    child.kill()
+                    child.wait()
+                    # SIGKILL cannot establish restart lockdown. Fail service instead
+                    # of claiming a protected replacement; dinit may auto-restart it.
+                    return 1
+                try:
+                    child.wait(timeout=0.05)
+                except subprocess.TimeoutExpired:
+                    pass
+            # A stop racing child exit must not launch another daemon.
+            if stopping or any(s in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP, signal.SIGQUIT) for s in pending):
+                return 0
+            if not restart:
+                # Unexpected exit is delegated to dinit's bounded restart policy.
+                return child.returncode if child.returncode > 0 else 1
+        finally:
+            if child.poll() is None:
+                child.kill()
+            child.wait()
+
+
+if __name__ == '__main__':
+    try:
+        if sys.argv[1:] == ['early']:
+            if not os.path.isdir(RESOURCE):
+                raise ValueError('Mullvad resource directory unavailable')
+            os.execve(DAEMON, [DAEMON, '-v', '--initialize-early-boot-firewall'],
+                      dict(os.environ, MULLVAD_RESOURCE_DIR=RESOURCE))
+        elif sys.argv[1:]:
+            raise ValueError('expected no arguments or early')
+        else:
+            sys.exit(supervise([DAEMON, '-vv', '--disable-stdout-timestamps'], RESOURCE))
+    except (OSError, ValueError) as error:
+        print(f'console-mullvad: {error}', file=sys.stderr)
+        sys.exit(1)

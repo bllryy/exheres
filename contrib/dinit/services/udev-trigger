@@ -1,0 +1,5 @@
+type = scripted
+command = /etc/dinit.d/helpers/console-udev-trigger
+log-type = buffer
+restart = false
+depends-on: udev-ready

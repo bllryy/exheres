@@ -1,0 +1,123 @@
+#!/usr/host/bin/python3
+"""Foreground supervisor; no shell evaluation and no VPN state inspection."""
+import argparse
+import os
+from pathlib import Path
+import re
+import shlex
+import signal
+import stat
+import subprocess
+import sys
+
+
+def options(path):
+    # Supported EnvironmentFile subset: one PORT/FLAGS assignment per line,
+    # shell-style quoting, blank lines and full-line comments. No expansion.
+    with open(path, encoding='utf-8') as stream:
+        metadata = os.fstat(stream.fileno())
+        if not stat.S_ISREG(metadata.st_mode) or metadata.st_uid != os.geteuid() or metadata.st_mode & 0o022:
+            raise ValueError('unsafe options file')
+        values = {'PORT': '41641', 'FLAGS': ''}
+        for line in stream:
+            line = line.strip()
+            if not line or line.startswith('#'):
+                continue
+            match = re.fullmatch(r'(PORT|FLAGS)=(.*)', line)
+            if not match or any(c in match[2] for c in ('$','`','\\','\x00')):
+                raise ValueError('unsupported options assignment')
+            parts = shlex.split(match[2], comments=False)
+            if len(parts) > 1:
+                raise ValueError('quote assignment values containing spaces')
+            values[match[1]] = parts[0] if parts else ''
+    if not values['PORT'].isascii() or not values['PORT'].isdigit() or not 0 <= int(values['PORT']) <= 65535:
+        raise ValueError('invalid PORT')
+    flags = shlex.split(values['FLAGS'])
+    for flag in flags:
+        if flag.split('=', 1)[0].lstrip('-') in ('state', 'statedir', 'socket', 'port', 'cleanup'):
+            raise ValueError('FLAGS cannot override managed paths or lifecycle')
+    return values['PORT'], flags
+
+
+def directory(path, mode):
+    path.mkdir(mode=mode, parents=True, exist_ok=True)
+    metadata = path.lstat()
+    if not stat.S_ISDIR(metadata.st_mode) or metadata.st_uid != os.geteuid():
+        raise ValueError('unsafe daemon directory')
+    path.chmod(mode)
+
+
+def main():
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--daemon', default='/usr/sbin/tailscaled')
+    parser.add_argument('--config', default='/etc/default/tailscaled')
+    parser.add_argument('--runtime', type=Path, default=Path('/run/tailscale'))
+    parser.add_argument('--state', type=Path, default=Path('/var/lib/tailscale'))
+    parser.add_argument('--cache', type=Path, default=Path('/var/cache/tailscale'))
+    parser.add_argument('--timeout', type=float, default=10)
+    args = parser.parse_args()
+    if not 0 < args.timeout <= 30:
+        parser.error('timeout must be greater than zero and at most 30 seconds')
+    child = None
+    stopping = False
+
+    def stop(signum, frame):
+        nonlocal stopping
+        stopping = True
+        if child is not None and child.poll() is None:
+            child.terminate()
+
+    # No reload protocol: HUP/QUIT request orderly stop, like TERM/INT.
+    for signum in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP, signal.SIGQUIT):
+        signal.signal(signum, stop)
+    env = os.environ.copy()
+    env.pop('NOTIFY_SOCKET', None)
+    status = 1
+    started = False
+    try:
+        port, flags = options(args.config)
+        for path, mode in ((args.runtime, 0o755), (args.state, 0o700), (args.cache, 0o750)):
+            directory(path, mode)
+        if not stopping:
+            started = True
+            child = subprocess.Popen([args.daemon, '--state=' + str(args.state / 'tailscaled.state'),
+                                      '--socket=' + str(args.runtime / 'tailscaled.sock'),
+                                      '--port=' + port, *flags], env=env)
+            # Polling bounds shutdown even when daemon ignores SIGTERM.
+            while True:
+                try:
+                    status = child.wait(timeout=0.1)
+                    break
+                except subprocess.TimeoutExpired:
+                    if stopping:
+                        child.terminate()
+                        try:
+                            status = child.wait(timeout=args.timeout)
+                        except subprocess.TimeoutExpired:
+                            child.kill()
+                            status = child.wait()
+                        break
+    except (OSError, ValueError) as error:
+        print('console-tailscaled: ' + str(error), file=sys.stderr)
+    finally:
+        # Like ExecStopPost: failed exec, normal exit, crash and handled signals.
+        # SIGKILL of this supervisor and power loss cannot run cleanup.
+        if started:
+            try:
+                cleanup = subprocess.Popen([args.daemon, '--cleanup'], env=env)
+                try:
+                    result = cleanup.wait(timeout=args.timeout)
+                except subprocess.TimeoutExpired:
+                    cleanup.kill()
+                    cleanup.wait()
+                    result = 1
+                if result:
+                    status = 1
+            except OSError as error:
+                print('console-tailscaled cleanup: ' + str(error), file=sys.stderr)
+                status = 1
+    return 0 if stopping and status == -signal.SIGTERM else (status if 0 <= status <= 255 else 1)
+
+
+if __name__ == '__main__':
+    sys.exit(main())

@@ -1,0 +1,8 @@
+type = scripted
+command = /etc/dinit.d/helpers/console-cgroups
+depends-on: local-mounts
+log-type = file
+logfile = /var/log/console-cgroups.log
+logfile-permissions = 0600
+logfile-uid = 0
+logfile-gid = 0

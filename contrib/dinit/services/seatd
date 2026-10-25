@@ -1,0 +1,7 @@
+type = process
+command = /usr/host/bin/seatd -g video -n 3
+ready-notification = pipefd:3
+working-dir = /
+log-type = buffer
+depends-on: local-mounts
+depends-on: udev-ready

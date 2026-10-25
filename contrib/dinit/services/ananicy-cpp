@@ -1,0 +1,10 @@
+type = process
+command = /usr/x86_64-pc-linux-gnu/bin/ananicy-cpp start
+nice = -5
+oom-score-adj = -999
+restart = true
+restart-delay = 10
+restart-limit-interval = 60
+restart-limit-count = 5
+log-type = buffer
+depends-on: local-mounts

@@ -1,0 +1,10 @@
+type = scripted
+command = /usr/x86_64-pc-linux-gnu/bin/hostname -F /etc/hostname
+depends-on: local-mounts
+before: dhcpcd
+before: dbus
+before: seatd
+before: turnstiled
+before: tty1
+log-type = buffer
+restart = false

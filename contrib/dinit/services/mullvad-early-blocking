@@ -1,0 +1,5 @@
+type = scripted
+command = /etc/dinit.d/helpers/console-mullvad early
+restart = false
+depends-on: local-mounts
+log-type = buffer

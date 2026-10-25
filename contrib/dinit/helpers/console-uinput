@@ -1,0 +1,22 @@
+#!/usr/bin/python3 -I
+"""Load uinput before ydotool; fail persistently if device never appears."""
+import stat
+import subprocess
+import sys
+from pathlib import Path
+
+
+def initialize(device=Path('/dev/uinput')):
+    subprocess.run(['/usr/host/bin/modprobe', 'uinput'], check=True)
+    # Module registration creates devtmpfs node synchronously; settle udev rules too.
+    subprocess.run(['/usr/x86_64-pc-linux-gnu/bin/udevadm', 'settle', '--timeout=30'], check=True)
+    if not stat.S_ISCHR(device.stat().st_mode):
+        raise RuntimeError(f'expected character device after modprobe uinput: {device}')
+
+
+if __name__ == '__main__':
+    try:
+        initialize()
+    except Exception as exc:
+        print(f'console-uinput: {exc}', file=sys.stderr, flush=True)
+        sys.exit(1)

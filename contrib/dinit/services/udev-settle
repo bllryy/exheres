@@ -2,4 +2,4 @@ type = scripted
 command = /usr/x86_64-pc-linux-gnu/bin/udevadm settle --timeout=30
 log-type = buffer
 restart = false
-depends-on: console-udev-trigger
+depends-on: udev-trigger

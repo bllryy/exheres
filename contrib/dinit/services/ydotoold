@@ -1,0 +1,11 @@
+type = process
+command = /usr/x86_64-pc-linux-gnu/bin/ydotoold --socket-path=/run/ydotoold/socket --socket-own=1000:1000 --socket-perm=0600
+log-type = file
+logfile = /var/log/console-ydotoold.log
+logfile-permissions = 0600
+logfile-uid = 0
+logfile-gid = 0
+restart = on-failure
+restart-delay = 1
+depends-on: ydotoold-runtime
+depends-on: uinput

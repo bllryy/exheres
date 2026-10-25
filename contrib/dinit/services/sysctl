@@ -1,0 +1,12 @@
+type = scripted
+command = /usr/x86_64-pc-linux-gnu/bin/sysctl --system
+depends-on: local-mounts
+before: hostname
+before: loopback
+before: dhcpcd
+before: dbus
+before: seatd
+before: turnstiled
+before: tty1
+log-type = buffer
+restart = false

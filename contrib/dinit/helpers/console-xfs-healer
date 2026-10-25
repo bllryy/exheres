@@ -1,0 +1,8 @@
+#!/bin/sh
+# Optional root healer only. Fail clearly when running kernel lacks health monitor.
+set -eu
+healer=/usr/x86_64-pc-linux-gnu/libexec/xfsprogs/xfs_healer
+"$healer" --supported /
+# Not SERVICE_MODE: stderr stays visible without journald.
+unset SERVICE_MODE
+exec "$healer" /

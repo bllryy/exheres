@@ -6,7 +6,7 @@ export PATH
 [ "$#" -eq 0 ] || { printf '%s\n' 'console-udev-ready: no arguments accepted' >&2; exit 1; }
 # timeout returns nonzero on exhaustion, so dependent services cannot start.
 exec timeout --signal=KILL 30 sh -c '
-    until timeout --signal=KILL 2 udevadm control --timeout=1 --ping; do
+    until timeout --signal=KILL 2 udevadm control --timeout=1 --reload; do
         sleep 0.2
     done
 '
