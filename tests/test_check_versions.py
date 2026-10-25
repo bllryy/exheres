@@ -98,7 +98,7 @@ class VersionChecks(unittest.TestCase):
             config = tomllib.load(file)
         found, problems = updater.recipes(root)
         self.assertEqual(problems, [])
-        self.assertEqual(set(found), (set(config) - {"__config__"}) | set(updater.UNSUPPORTED) | {updater.KERNEL})
+        self.assertEqual(set(found), (set(config) - {"__config__"}) | set(updater.UNSUPPORTED) | set(updater.official_config(root)) | {updater.KERNEL})
         self.assertFalse((set(config) - {"__config__"}) & set(updater.UNSUPPORTED))
         self.assertNotIn(updater.KERNEL, config)
 

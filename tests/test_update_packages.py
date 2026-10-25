@@ -286,7 +286,7 @@ class PreviewTests(unittest.TestCase):
         kernel = self.root / "packages/sys-kernel/kernel-cachyos"
         kernel.mkdir(parents=True)
         (kernel / "kernel-cachyos-7.2.9.exheres-0").write_text('MY_RELEASE="${PV}-2"\n')
-        snapshot = ("7.2.9-3", {"linux-cachyos": "a" * 64, "linux-cachyos-headers": "b" * 64})
+        snapshot = ("7.2.9-3", {"linux-cachyos-eevdf-lto": "a" * 64, "linux-cachyos-eevdf-lto-headers": "b" * 64})
         def run_preview(*, versions_out, kernel_out, **kwargs):
             kernel_out.append(snapshot)
             return {updater.KERNEL: ("update", "7.2.9-2 -> 7.2.9-3")}, False

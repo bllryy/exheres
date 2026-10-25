@@ -24,6 +24,15 @@ src_unpack() {
 
 
 class KernelUpdates(unittest.TestCase):
+    def test_retains_lts_fallback(self):
+        fallback = self.package / "kernel-cachyos-6.18.55.exheres-0"
+        fallback.write_text('MY_KERNEL="linux-cachyos-lts-${MY_RELEASE}"\n')
+        urls = self.run_update("7.3.0-2")
+        target = self.package / "kernel-cachyos-7.3.0.exheres-0"
+        self.assertTrue(fallback.exists())
+        self.assertIn("linux-cachyos-lts", fallback.read_text())
+        self.assertTrue(target.exists())
+
     def setUp(self):
         self.temporary = tempfile.TemporaryDirectory()
         self.addCleanup(self.temporary.cleanup)
@@ -50,10 +59,10 @@ class KernelUpdates(unittest.TestCase):
             return "a" * 64 if "headers" not in url else "b" * 64
 
         def inspect(_archive, name, _release):
-            if error == "inspect" and name == "linux-cachyos-headers":
+            if error == "inspect" and name == "linux-cachyos-eevdf-lto-headers":
                 raise updater.UpdateError("mismatched headers")
 
-        hashes = {"linux-cachyos": "a" * 64, "linux-cachyos-headers": "b" * 64}
+        hashes = {"linux-cachyos-eevdf-lto": "a" * 64, "linux-cachyos-eevdf-lto-headers": "b" * 64}
         with patch.object(updater, "published_release", return_value=(version, hashes)), \
              patch.object(updater, "download", side_effect=download), \
              patch.object(updater, "inspect_archive", side_effect=inspect):
@@ -64,10 +73,10 @@ class KernelUpdates(unittest.TestCase):
         return sorted(path.name for path in self.package.iterdir())
 
     def test_injected_snapshot_reuses_hashes_and_returns_release(self):
-        hashes = {"linux-cachyos": "a" * 64, "linux-cachyos-headers": "b" * 64}
+        hashes = {"linux-cachyos-eevdf-lto": "a" * 64, "linux-cachyos-eevdf-lto-headers": "b" * 64}
         def download(url, destination):
             destination.write_bytes(b"archive")
-            return hashes["linux-cachyos-headers" if "headers" in url else "linux-cachyos"]
+            return hashes["linux-cachyos-eevdf-lto-headers" if "headers" in url else "linux-cachyos-eevdf-lto"]
         with patch.object(updater, "published_release") as published, \
              patch.object(updater, "download", side_effect=download), \
              patch.object(updater, "inspect_archive"):
@@ -80,14 +89,14 @@ class KernelUpdates(unittest.TestCase):
 
     def test_invalid_snapshot_preserves_recipe(self):
         before = self.recipe("7.2.9", TEMPLATE).read_bytes()
-        for hashes in ({}, {"linux-cachyos": "x", "linux-cachyos-headers": "b" * 64}):
+        for hashes in ({}, {"linux-cachyos-eevdf-lto": "x", "linux-cachyos-eevdf-lto-headers": "b" * 64}):
             with self.subTest(hashes=hashes), self.assertRaises(updater.UpdateError):
                 updater.update(self.root, ("7.2.9-2", hashes))
         self.assertEqual((self.package / "kernel-cachyos-7.2.9.exheres-0").read_bytes(), before)
 
     def test_changed_source_during_index_fetch_preserves_it(self):
         source = self.package / "kernel-cachyos-7.2.9.exheres-0"
-        hashes = {"linux-cachyos": "a" * 64, "linux-cachyos-headers": "b" * 64}
+        hashes = {"linux-cachyos-eevdf-lto": "a" * 64, "linux-cachyos-eevdf-lto-headers": "b" * 64}
         def published():
             source.write_text(TEMPLATE + "# changed during index fetch\n")
             return "7.2.9-2", hashes
@@ -101,7 +110,7 @@ class KernelUpdates(unittest.TestCase):
 
     def test_source_inode_replacement_during_index_fetch_preserves_it(self):
         source = self.package / "kernel-cachyos-7.2.9.exheres-0"
-        hashes = {"linux-cachyos": "a" * 64, "linux-cachyos-headers": "b" * 64}
+        hashes = {"linux-cachyos-eevdf-lto": "a" * 64, "linux-cachyos-eevdf-lto-headers": "b" * 64}
 
         def published():
             replacement = self.package / "replacement.exheres-0"
@@ -119,11 +128,11 @@ class KernelUpdates(unittest.TestCase):
 
     def test_changed_source_during_download_preserves_it(self):
         source = self.package / "kernel-cachyos-7.2.9.exheres-0"
-        hashes = {"linux-cachyos": "a" * 64, "linux-cachyos-headers": "b" * 64}
+        hashes = {"linux-cachyos-eevdf-lto": "a" * 64, "linux-cachyos-eevdf-lto-headers": "b" * 64}
         def download(url, destination):
             destination.write_bytes(b"archive")
             source.write_text(TEMPLATE + "# concurrent edit\n")
-            return hashes["linux-cachyos-headers" if "headers" in url else "linux-cachyos"]
+            return hashes["linux-cachyos-eevdf-lto-headers" if "headers" in url else "linux-cachyos-eevdf-lto"]
         with patch.object(updater, "download", side_effect=download), patch.object(updater, "inspect_archive"):
             with self.assertRaisesRegex(updater.UpdateError, "changed while preparing"):
                 updater.update(self.root, ("7.2.9-2", hashes))
@@ -168,8 +177,8 @@ class KernelUpdates(unittest.TestCase):
         self.assertEqual(
             urls,
             [
-                f"{updater.CDN}/linux-cachyos-7.2.9-2-x86_64_v3.pkg.tar.zst",
-                f"{updater.CDN}/linux-cachyos-headers-7.2.9-2-x86_64_v3.pkg.tar.zst",
+                f"{updater.CDN}/linux-cachyos-eevdf-lto-7.2.9-2-x86_64_v3.pkg.tar.zst",
+                f"{updater.CDN}/linux-cachyos-eevdf-lto-headers-7.2.9-2-x86_64_v3.pkg.tar.zst",
             ],
         )
         self.assertEqual(self.names(), ["kernel-cachyos-7.2.9-r1.exheres-0"])
@@ -243,7 +252,7 @@ class KernelUpdates(unittest.TestCase):
                     tar.addfile(info, io.BytesIO(metadata))
             return subprocess.run(["zstd", "-cq"], input=raw.getvalue(), stdout=subprocess.PIPE, check=True).stdout
 
-        kernel, headers = "linux-cachyos", "linux-cachyos-headers"
+        kernel, headers = "linux-cachyos-eevdf-lto", "linux-cachyos-eevdf-lto-headers"
         items = [
             (kernel, "7.2.9-2", entry(kernel, "7.2.9-2")),
             (headers, "7.2.9-2", entry(headers, "7.2.9-2", "b" * 64)),
@@ -268,11 +277,11 @@ class KernelUpdates(unittest.TestCase):
     def test_archive_metadata_and_paths(self):
         def archive(name, unsafe=False):
             path = self.root / f"{name}.tar.zst"
-            module = "usr/lib/modules/7.2.9-2-cachyos"
+            module = "usr/lib/modules/7.2.9-2-cachyos-eevdf-lto"
             items = {
                 ".PKGINFO": f"pkgname = {name}\npkgver = 7.2.9-2\narch = x86_64_v3\n".encode(),
             }
-            if name == "linux-cachyos":
+            if name == "linux-cachyos-eevdf-lto":
                 items.update({f"{module}/vmlinuz": b"kernel", f"{module}/kernel/example.ko.zst": b"module"})
             else:
                 items.update({f"{module}/build/{part}": b"header" for part in (".config", "Module.symvers", "System.map")})
@@ -289,19 +298,19 @@ class KernelUpdates(unittest.TestCase):
             path.write_bytes(subprocess.run(["zstd", "-cq"], input=raw.getvalue(), stdout=subprocess.PIPE, check=True).stdout)
             return path
 
-        updater.inspect_archive(archive("linux-cachyos"), "linux-cachyos", "7.2.9-2")
-        updater.inspect_archive(archive("linux-cachyos-headers"), "linux-cachyos-headers", "7.2.9-2")
+        updater.inspect_archive(archive("linux-cachyos-eevdf-lto"), "linux-cachyos-eevdf-lto", "7.2.9-2")
+        updater.inspect_archive(archive("linux-cachyos-eevdf-lto-headers"), "linux-cachyos-eevdf-lto-headers", "7.2.9-2")
         with self.assertRaises(updater.UpdateError):
-            updater.inspect_archive(archive("linux-cachyos", unsafe=True), "linux-cachyos", "7.2.9-2")
+            updater.inspect_archive(archive("linux-cachyos-eevdf-lto", unsafe=True), "linux-cachyos-eevdf-lto", "7.2.9-2")
         with self.assertRaises(updater.UpdateError):
-            updater.inspect_archive(archive("linux-cachyos"), "linux-cachyos", "7.2.9-3")
+            updater.inspect_archive(archive("linux-cachyos-eevdf-lto"), "linux-cachyos-eevdf-lto", "7.2.9-3")
 
     def test_directory_cannot_stand_in_for_required_file(self):
         archive = self.root / "invalid.tar.zst"
-        module = "usr/lib/modules/7.2.9-2-cachyos"
+        module = "usr/lib/modules/7.2.9-2-cachyos-eevdf-lto"
         raw = io.BytesIO()
         with tarfile.open(fileobj=raw, mode="w") as tar:
-            metadata = b"pkgname = linux-cachyos\npkgver = 7.2.9-2\narch = x86_64_v3\n"
+            metadata = b"pkgname = linux-cachyos-eevdf-lto\npkgver = 7.2.9-2\narch = x86_64_v3\n"
             info = tarfile.TarInfo(".PKGINFO")
             info.size = len(metadata)
             tar.addfile(info, io.BytesIO(metadata))
@@ -312,7 +321,7 @@ class KernelUpdates(unittest.TestCase):
         import subprocess
         archive.write_bytes(subprocess.run(["zstd", "-cq"], input=raw.getvalue(), stdout=subprocess.PIPE, check=True).stdout)
         with self.assertRaises(updater.UpdateError):
-            updater.inspect_archive(archive, "linux-cachyos", "7.2.9-2")
+            updater.inspect_archive(archive, "linux-cachyos-eevdf-lto", "7.2.9-2")
 
 
 if __name__ == "__main__":

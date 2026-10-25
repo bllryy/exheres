@@ -2,6 +2,8 @@
 """Preview package releases with a short-lived cache for GitHub checks."""
 
 import argparse
+import base64
+import difflib
 import hashlib
 import posixpath
 import json
@@ -61,6 +63,8 @@ def recipes(root):
             continue
         version = stem[len(prefix):]
         if name == "sys-kernel/kernel-cachyos":
+            if 'linux-cachyos-lts-' in path.read_text():
+                continue
             kernel_count += 1
             if not KERNEL_RECIPE.fullmatch(version):
                 problems.append(f"invalid kernel version: {version}")
@@ -162,7 +166,7 @@ def published_release():
                     with tarfile.open(fileobj=stream, mode="r|") as tar:
                         for member in tar:
                             match = re.fullmatch(
-                                r"(linux-cachyos(?:-headers)?)-([0-9]+(?:\.[0-9]+)*-[1-9][0-9]*)/desc",
+                                r"(linux-cachyos-eevdf-lto(?:-headers)?)-([0-9]+(?:\.[0-9]+)*-[1-9][0-9]*)/desc",
                                 member.name,
                             )
                             if not match:
@@ -197,13 +201,13 @@ def published_release():
                     raise
     except (tarfile.TarError, UnicodeError, OSError, BrokenPipeError) as error:
         raise UpdateError(f"Cannot inspect repository index: {error}") from error
-    releases = {release for name, release in packages if name == "linux-cachyos"} & {
-        release for name, release in packages if name == "linux-cachyos-headers"
+    releases = {release for name, release in packages if name == "linux-cachyos-eevdf-lto"} & {
+        release for name, release in packages if name == "linux-cachyos-eevdf-lto-headers"
     }
     if not releases:
         raise UpdateError("Repository index has no matching kernel and headers")
     release = max(releases, key=release_key)
-    return release, {name: packages[name, release] for name in ("linux-cachyos", "linux-cachyos-headers")}
+    return release, {name: packages[name, release] for name in ("linux-cachyos-eevdf-lto", "linux-cachyos-eevdf-lto-headers")}
 
 
 def download(url, destination):
@@ -270,8 +274,8 @@ def inspect_archive(archive, name, release):
     for key, value in expected.items():
         if fields.get(key) != [value]:
             raise UpdateError(f"{archive.name}: expected {key} = {value!r}, got {fields.get(key)!r}")
-    module = f"usr/lib/modules/{release}-cachyos"
-    if name == "linux-cachyos":
+    module = f"usr/lib/modules/{release}-cachyos-eevdf-lto"
+    if name == "linux-cachyos-eevdf-lto":
         required = (f"{module}/vmlinuz",)
         prefixes = (f"{module}/kernel/",)
     else:
@@ -293,7 +297,7 @@ def replace_once(text, pattern, replacement):
 def render_recipe(template, release, hashes):
     pkgrel = release_key(release)[1]
     text = replace_once(template, r'^MY_RELEASE="\$\{PV\}-[1-9][0-9]*"$', f'MY_RELEASE="${{PV}}-{pkgrel}"')
-    for variable, digest in (("MY_KERNEL", hashes["linux-cachyos"]), ("MY_HEADERS", hashes["linux-cachyos-headers"])):
+    for variable, digest in (("MY_KERNEL", hashes["linux-cachyos-eevdf-lto"]), ("MY_HEADERS", hashes["linux-cachyos-eevdf-lto-headers"])):
         pattern = rf'("\${{{variable}}}"\) expected=)[0-9a-f]{{64}}( ;;)'
         text = replace_once(text, pattern, lambda match: f"{match.group(1)}{digest}{match.group(2)}")
     return text
@@ -319,7 +323,8 @@ def recipe_dirty(root, source, target):
 
 def update(root=ROOT, published=None):
     package_dir = root / "packages/sys-kernel/kernel-cachyos"
-    recipes = list(package_dir.glob("*.exheres-0"))
+    recipes = [path for path in package_dir.glob("*.exheres-0")
+               if 'linux-cachyos-lts-' not in path.read_text()]
     if len(recipes) != 1:
         raise UpdateError(f"Expected exactly one kernel recipe, found {len(recipes)}")
     latest = recipes[0]
@@ -335,7 +340,7 @@ def update(root=ROOT, published=None):
         raise UpdateError(f"Kernel recipe has local changes: {latest}")
     upstream, published_hashes = published if published is not None else published_release()
     release_key(upstream)
-    if (not isinstance(published_hashes, dict) or set(published_hashes) != {"linux-cachyos", "linux-cachyos-headers"}
+    if (not isinstance(published_hashes, dict) or set(published_hashes) != {"linux-cachyos-eevdf-lto", "linux-cachyos-eevdf-lto-headers"}
             or any(not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value)
                    for value in published_hashes.values())):
         raise UpdateError("Invalid published kernel hashes")
@@ -359,7 +364,7 @@ def update(root=ROOT, published=None):
 
     hashes = {}
     with tempfile.TemporaryDirectory(prefix="kernel-cachyos-") as temporary:
-        for name in ("linux-cachyos", "linux-cachyos-headers"):
+        for name in ("linux-cachyos-eevdf-lto", "linux-cachyos-eevdf-lto-headers"):
             directory = Path(temporary) / name
             directory.mkdir()
             archive = directory / f"{name}-{upstream}-x86_64_v3.pkg.tar.zst"
@@ -509,7 +514,10 @@ def preview(root=ROOT, config_path=CONFIG, cache_path=CACHE, refresh=False, now=
         raise ValueError("refusing nvchecker config with version file writes")
     current, problems = recipes(root)
     entries = set(config) - {"__config__"}
-    problems.extend(f"unmapped recipe: {name}" for name in sorted(current.keys() - entries - UNSUPPORTED.keys() - {KERNEL}))
+    origins = official_config(root)
+    if versions_out is not None:
+        versions_out["official"] = True
+    problems.extend(f"unmapped recipe: {name}" for name in sorted(current.keys() - entries - UNSUPPORTED.keys() - origins.keys() - {KERNEL}))
     problems.extend(f"mapping without recipe: {name}" for name in sorted((entries | UNSUPPORTED.keys()) - current.keys()))
     problems.extend(f"both configured and unsupported: {name}" for name in sorted(entries & UNSUPPORTED.keys()))
     if KERNEL in entries:
@@ -639,7 +647,174 @@ def download_checksum(url):
     return digest.hexdigest()
 
 
-def prepare_recipe(root, name, version):
+def numeric_version(version):
+    match = re.fullmatch(r"([0-9]+(?:\.[0-9]+)*)(?:-r([0-9]+))?", version)
+    if not match:
+        return None
+    return tuple(map(int, match[1].split("."))) + (int(match[2] or 0),)
+
+
+def current_version(root, name):
+    return recipes(root)[0].get(name)
+
+
+def official_config(root):
+    path = root / "scripts/recipe-origins.json"
+    return json.loads(path.read_text()) if path.exists() else {}
+
+
+def official_files(origin, version):
+    repository = origin["repository"]
+    if not re.fullmatch(r"https://gitlab\.exherbo\.org/(?:exherbo|exherbo-devs)/[A-Za-z0-9_-]+", repository):
+        raise PreparationError("Invalid official repository")
+    url = repository + "/-/archive/master/source.tar.gz"
+    try:
+        with tempfile.TemporaryDirectory(prefix="gurov-official-") as temporary:
+            archive = Path(temporary) / "source.tar.gz"
+            opener = urllib.request.build_opener(ChecksumRedirect(url))
+            with opener.open(url, timeout=30) as response, archive.open("xb") as output:
+                size = 0
+                while chunk := response.read(1024 * 1024):
+                    size += len(chunk)
+                    if size > 32 * 1024 * 1024:
+                        raise PreparationError("Official archive exceeds size limit")
+                    output.write(chunk)
+            files = {}
+            prefix = "packages/" + origin["package"] + "/"
+            with tarfile.open(archive) as tar:
+                total = 0
+                archive_total = 0
+                for count, member in enumerate(tar, 1):
+                    archive_total += member.size
+                    if count > 100000 or archive_total > 256 * 1024 * 1024:
+                        raise PreparationError("Official archive exceeds unpacked limits")
+                    relative = member.name.partition("/")[2]
+                    if not relative.startswith(prefix):
+                        continue
+                    path = PurePosixPath(relative[len(prefix):])
+                    if member.isdir():
+                        continue
+                    if not member.isfile() or path.is_absolute() or ".." in path.parts:
+                        raise PreparationError("Unsafe official archive member")
+                    if path.name.endswith(".exheres-0") and version is not None and path.name != origin["package"].split("/")[1] + "-" + version + ".exheres-0":
+                        continue
+                    total += member.size
+                    if total > 8 * 1024 * 1024:
+                        raise PreparationError("Official package exceeds size limit")
+                    files[str(path)] = tar.extractfile(member).read()
+            recipe = origin["package"].split("/")[1] + "-" + str(version) + ".exheres-0"
+            if version is not None and recipe not in files:
+                raise PreparationError(f"Official recipe not available: {recipe}")
+            return files
+    except (OSError, urllib.error.URLError, tarfile.TarError, TimeoutError) as error:
+        raise PreparationError(f"Cannot fetch official recipe: {error}") from error
+
+
+def merge_recipe(base, local, incoming):
+    if local == base:
+        return incoming
+    if incoming == base or local == incoming:
+        return local
+    if None in (base, local, incoming) or b"\0" in base + local + incoming:
+        raise PreparationError("Official overlay add/delete or binary conflict")
+    with tempfile.TemporaryDirectory(prefix="gurov-merge-") as temporary:
+        paths = [Path(temporary) / name for name in ("local", "base", "incoming")]
+        for path, data in zip(paths, (local, base, incoming)):
+            path.write_bytes(data)
+        result = subprocess.run(["git", "merge-file", "-p", *map(str, paths)], capture_output=True, timeout=30)
+        if result.returncode:
+            raise PreparationError("Official overlay merge conflict; rebase manually")
+        return result.stdout
+
+
+def prepare_official(root, name, version, origin):
+    if numeric_version(version) is None or not re.fullmatch(r"[A-Za-z0-9+_.-]+/[A-Za-z0-9+_.-]+", name):
+        raise PreparationError("Invalid official package selector or version")
+    directory = root / "packages" / name
+    for path in origin["baseline"]:
+        if PurePosixPath(path).is_absolute() or ".." in PurePosixPath(path).parts:
+            raise PreparationError("Invalid provenance path")
+    if not re.fullmatch(r"[0-9a-f]{40}", origin["commit"]):
+        raise PreparationError("Missing pinned provenance")
+    if directory.is_symlink() or any(p.is_symlink() for p in directory.parents if p != root.parent):
+        raise PreparationError("Symlinked package directory")
+    snapshot = {str(p.relative_to(directory)): p.read_bytes() for p in directory.rglob("*") if p.is_file()}
+    if any(p.is_symlink() for p in directory.rglob("*")):
+        raise PreparationError("Symlinked package payload")
+    base = {path: base64.b64decode(data, validate=True) for path, data in origin["baseline"].items()}
+    incoming = official_files(origin, version)
+    old_recipe = origin["recipe"]
+    upstream_package = origin["package"].split("/")[1]
+    new_recipe = upstream_package + "-" + version + ".exheres-0"
+    package = name.split("/")[1]
+    current = current_version(root, name)
+    local_recipe = package + "-" + current + ".exheres-0" if current else origin["local_recipe"]
+    target = package + "-" + version + ".exheres-0"
+    if target != local_recipe and target in snapshot:
+        raise PreparationError("Target recipe already exists")
+    if origin["mode"] == "derived":
+        if hashlib.sha256(snapshot.get(local_recipe, b"")).hexdigest() != origin["local_sha256"]:
+            raise PreparationError("Independent tools split changed since provenance review")
+        if target == local_recipe:
+            raise PreparationError("Target recipe already exists")
+        raise PreparationError("Independent systemd tools split requires verified build/install rebase; official systemd recipe is not a replacement")
+    local = dict(snapshot)
+    if local_recipe in local:
+        local_data = local.pop(local_recipe)
+        local[old_recipe] = local_data
+    if new_recipe != old_recipe:
+        incoming[old_recipe] = incoming.pop(new_recipe)
+    merged = dict(snapshot)
+    for path in base.keys() | incoming.keys():
+        value = merge_recipe(base.get(path), local.get(path) if snapshot else base.get(path), incoming.get(path))
+        destination = target if path == old_recipe else path
+        if value is None:
+            merged.pop(destination, None)
+        else:
+            merged[destination] = value
+    if target != local_recipe:
+        merged.pop(local_recipe, None)
+    recipe_text = merged[target].decode("utf-8")
+    for referenced in re.findall(r'\$\{FILES\}/([^"\s]+)', recipe_text):
+        referenced = referenced.replace("${PV}", version).replace("${PNV}", package + "-" + version)
+        if "$" in referenced or "files/" + referenced not in merged:
+            raise PreparationError(f"Local patch requires verified rebase: {referenced}")
+    return directory, snapshot, merged
+
+
+def official_diff(plan):
+    directory, before, after = plan
+    output = []
+    for path in sorted(before.keys() | after.keys()):
+        if before.get(path) == after.get(path):
+            continue
+        output.extend(difflib.unified_diff(before.get(path, b"").decode("utf-8", "replace").splitlines(True),
+                                         after.get(path, b"").decode("utf-8", "replace").splitlines(True),
+                                         fromfile=str(directory / path), tofile=str(directory / path)))
+    return "".join(output)
+
+
+def write_official(plan):
+    directory, before, after = plan
+    current = {str(p.relative_to(directory)): p.read_bytes() for p in directory.rglob("*") if p.is_file()}
+    if current != before or any(p.is_symlink() for p in directory.rglob("*")):
+        raise PreparationError("Package changed since review")
+    for path in sorted(before.keys() | after.keys()):
+        if before.get(path) == after.get(path):
+            continue
+        destination = directory / path
+        if path not in after:
+            destination.unlink()
+        else:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            with tempfile.NamedTemporaryFile(dir=destination.parent, delete=False) as file:
+                temporary = Path(file.name)
+                file.write(after[path])
+            temporary.chmod(0o644)
+            os.replace(temporary, destination)
+
+
+def prepare_recipe(root, name, version, review=False):
     if name == "net-im/element-desktop":
         raise PreparationError("Element source layout and Electron pin require manual review")
     if name == KERNEL or name in UNSUPPORTED or not re.fullmatch(r'[A-Za-z0-9+_.-]+/[A-Za-z0-9+_.-]+', name):
@@ -694,6 +869,12 @@ def prepare_recipe(root, name, version):
         url, guard, versionless = checksum_url(recipe, package, version)
         digest = download_checksum(url)
         recipe = recipe[:guard.start(1)] + digest + recipe[guard.end(1):]
+    if review:
+        print("".join(difflib.unified_diff(original.decode().splitlines(True), recipe.splitlines(True),
+                                       fromfile=str(source), tofile=str(target))))
+        print(f"Rename {source.name} -> {target.name}")
+        if not confirm("Apply this update? [y/N] "):
+            return None
     with tempfile.TemporaryDirectory(prefix=".package-recipe-", dir=directory) as temporary:
         staged = Path(temporary) / target.name
         staged.write_bytes(recipe.encode("utf-8"))
@@ -730,13 +911,25 @@ def prepare_recipe(root, name, version):
     return f"update {package} to {version}"
 
 
+def confirm(prompt):
+    try:
+        return input(prompt).strip().lower() in ("y", "yes")
+    except (EOFError, KeyboardInterrupt):
+        return False
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--refresh", action="store_true", help="refresh GitHub version checks")
     parser.add_argument("--verbose", action="store_true", help="show every package and cache age")
     parser.add_argument("--apply", nargs="+", metavar="PACKAGE", help="prepare selected updates")
     parser.add_argument("--all-eligible", action="store_true", help="prepare all reported updates")
+    parser.add_argument("--check", action="store_true", help="check only, including on a terminal")
+    parser.add_argument("--interactive", action="store_true", help="select updates and confirm reviewed diffs")
     args = parser.parse_args(argv)
+    interactive = args.interactive or (sys.stdin.isatty() and sys.stdout.isatty() and not (args.check or args.apply or args.all_eligible))
+    if args.check and (args.interactive or args.apply or args.all_eligible):
+        parser.error("--check cannot be combined with apply or interactive")
     if args.apply and args.all_eligible:
         parser.error("choose --apply or --all-eligible")
     if args.apply and len(args.apply) != len(set(args.apply)):
@@ -748,6 +941,24 @@ def main(argv=None):
     except (OSError, ValueError, tomllib.TOMLDecodeError) as error:
         print(f"Cannot preview updates: {error}", file=sys.stderr)
         return 1
+    origins = official_config(ROOT)
+    for name, origin in origins.items() if versions.pop("official", False) else []:
+        try:
+            files = official_files(origin, None)
+            prefix = origin["package"].split("/")[1] + "-"
+            available = [p.removeprefix(prefix).removesuffix(".exheres-0") for p in files
+                         if "/" not in p and p.startswith(prefix) and p.endswith(".exheres-0")]
+            available = [v for v in available if numeric_version(v) is not None]
+            if not available:
+                raise PreparationError("No numeric official recipe")
+            latest = max(available, key=numeric_version)
+            current = current_version(ROOT, name)
+            versions[name] = latest
+            a, b = numeric_version(current) if current else None, numeric_version(latest)
+            status = "update" if a is None or b > a else "ahead" if a > b else "current"
+            rows[name] = (status, f"{current} -> {latest} (official {origin['mode']})")
+        except PreparationError as error:
+            rows[name] = ("failed", str(error))
     labels = {"update": "to update", "failed": "failed", "ahead": "ahead of upstream",
               "untracked": "not tracked", "current": "up to date"}
     counts = {status: sum(row_status == status for row_status, _ in rows.values()) for status in labels}
@@ -761,6 +972,19 @@ def main(argv=None):
     selected = set(args.apply or []) if not args.all_eligible else {
         name for name, (status, _) in rows.items() if status == "update"
     }
+    if interactive:
+        choices = sorted(name for name, (status, _) in rows.items() if status == "update")
+        for number, name in enumerate(choices, 1):
+            print(f"{number}. {name}")
+        try:
+            answer = input("Select numbers, 'all', or Enter to cancel: ").strip()
+            selected = set(choices) if answer == "all" else {choices[int(n) - 1] for n in answer.split()
+                                                              if n.isdecimal() and 1 <= int(n) <= len(choices)}
+            if answer and answer != "all" and any(not n.isdecimal() or not 1 <= int(n) <= len(choices) for n in answer.split()):
+                print("Invalid selection; nothing applied", file=sys.stderr)
+                return 1
+        except (EOFError, KeyboardInterrupt):
+            return 0
     invalid = selected - rows.keys()
     if invalid:
         print(f"Unknown packages: {', '.join(sorted(invalid))}", file=sys.stderr)
@@ -783,6 +1007,18 @@ def main(argv=None):
             if name == KERNEL:
                 if not kernel:
                     raise PreparationError("no validated kernel index snapshot")
+                if interactive:
+                    paths = [path for path in (ROOT / "packages" / KERNEL).glob("*.exheres-0")
+                             if 'linux-cachyos-lts-' not in path.read_text()]
+                    if len(paths) != 1:
+                        raise PreparationError("Expected one active EEVDF LTO kernel recipe")
+                    old = paths[0]
+                    release_preview, hashes = kernel[0]
+                    print("".join(difflib.unified_diff(old.read_text().splitlines(True),
+                                                   render_recipe(old.read_text(), release_preview, hashes).splitlines(True),
+                                                   fromfile=str(old), tofile=f"kernel-cachyos-{display_release(release_preview)}.exheres-0")))
+                    if not confirm("Apply kernel update? [y/N] "):
+                        continue
                 release = update(ROOT, published=kernel[0])
                 if release is not None:
                     print(f"Draft: update kernel-cachyos to {display_release(release)}")
@@ -790,7 +1026,17 @@ def main(argv=None):
                 version = versions.get(name)
                 if version is None:
                     raise PreparationError("no validated version")
-                print(f"Draft: {prepare_recipe(ROOT, name, version)}")
+                if name in origins:
+                    plan = prepare_official(ROOT, name, version, origins[name])
+                    print(official_diff(plan))
+                    if not confirm("Apply official update preserving local changes? [y/N] "):
+                        continue
+                    write_official(plan)
+                    print(f"Draft: update {name.split('/')[1]} to {version}")
+                else:
+                    suggestion = prepare_recipe(ROOT, name, version, review=True) if interactive else prepare_recipe(ROOT, name, version)
+                    if suggestion:
+                        print(f"Draft: {suggestion}")
         except (PreparationError, UpdateError, OSError, subprocess.SubprocessError) as error:
             print(f"Cannot prepare {name}: {error}", file=sys.stderr)
             failed = True
