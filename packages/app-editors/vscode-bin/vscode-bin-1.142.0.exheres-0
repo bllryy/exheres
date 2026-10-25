@@ -1,0 +1,89 @@
+# Copyright 2018 Rasmus Thomsen <cogitri@exherbo.org>
+# Distributed under the terms of the GNU General Public License v2
+
+SUMMARY="Code editing. Redefined."
+HOMEPAGE="https://code.visualstudio.com/"
+
+DOWNLOADS="
+    platform:amd64? ( https://update.code.visualstudio.com/${PV}/linux-x64/stable -> ${PNV}-amd64.tar.gz )
+"
+
+LICENCES="MIT"
+SLOT="0"
+MYOPTIONS="
+    ( providers: eudev systemd ) [[ number-selected = exactly-one ]]
+    platform: amd64
+"
+PLATFORMS="~amd64"
+
+
+DEPENDENCIES="
+    run:
+        dev-libs/at-spi2-core[>=2.52.0]
+        dev-libs/expat
+        dev-libs/glib:2
+        dev-libs/libglvnd
+        dev-libs/libsecret:1
+        dev-libs/nspr
+        dev-libs/nss
+        dev-libs/openssl:3
+        media-libs/fontconfig
+        media-libs/freetype:2
+        net-misc/curl
+        net-print/cups
+        sys-apps/dbus
+        providers:eudev? ( sys-apps/eudev )
+        providers:systemd? ( sys-apps/systemd )
+        sys-apps/util-linux
+        sys-libs/glibc
+        sys-libs/libgcc:*
+        sys-libs/libstdc++:*
+        sys-libs/zlib
+        sys-sound/alsa-lib
+        x11-dri/libdrm
+        x11-dri/mesa
+        x11-libs/cairo
+        x11-libs/gdk-pixbuf:2.0
+        x11-libs/gtk+:3
+        x11-libs/libX11
+        x11-libs/libXScrnSaver
+        x11-libs/libXcomposite
+        x11-libs/libXdamage
+        x11-libs/libXext
+        x11-libs/libXfixes
+        x11-libs/libXrandr
+        x11-libs/libxcb
+        x11-libs/libxkbcommon
+        x11-libs/libxkbfile
+        x11-libs/libxshmfence
+        x11-libs/pango
+    suggestion:
+        x11-apps/xprop                 [[ description = [ Used by the Live Share extension ] ]]
+        x11-apps/xwininfo              [[ description = [ Used by the Live Share extension ] ]]
+        gnome-desktop/gcr:0            [[ description = [ Used by the Live Share extension ] ]]
+        gnome-desktop/gnome-keyring:1  [[ description = [ Used by the Live Share extension ] ]]
+        app-crypt/krb5                 [[ description = [ Used by the Live Share extension ] ]]
+        dev-libs/icu:=                 [[ description = [ Used by the Live Share extension ] ]]
+        dev-util/desktop-file-utils    [[ description = [ Used by the Live Share extension ] ]]
+"
+
+WORK="${WORKBASE}/VSCode-linux-x64"
+
+pkg_setup() {
+    exdirectory --allow /opt
+}
+
+src_install() {
+    dodir /opt/${PN}
+    edo mv "${WORK}"/* "${IMAGE}"/opt/${PN}
+
+    dodir /usr/$(exhost --target)/bin
+    dosym /opt/${PN}/code /usr/$(exhost --target)/bin/vscode
+
+    insinto /usr/share/applications
+    doins "${FILES}"/vscode.desktop
+    doins "${FILES}"/vscode-url-handler.desktop
+
+    insinto /usr/share/pixmaps
+    doins "${FILES}"/vscode.png
+}

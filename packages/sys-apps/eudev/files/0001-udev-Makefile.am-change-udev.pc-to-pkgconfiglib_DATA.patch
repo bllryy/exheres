@@ -1,0 +1,35 @@
+Source: https://github.com/gentoo/eudev/pull/158
+Upstream: follows systemd: https://github.com/gentoo/eudev/pull/158#issuecomment-419866882
+systemd installs udev.pc to /usr/share/pkgconfig: https://bugs.freedesktop.org/show_bug.cgi?id=89769#c10
+Reason: prevent overriding /usr/share/pkgconfig/udev.pc while cross-compiling eudev.
+
+From 7deaac52616340b32687ab673f08af3806760e1c Mon Sep 17 00:00:00 2001
+From: Kai Kang <kai.kang@windriver.com>
+Date: Sun, 9 Sep 2018 22:16:24 -0400
+Subject: [PATCH] udev/Makefile.am: change udev.pc to pkgconfiglib_DATA
+
+udev.pc is library path related. It affects multilib. When both eudev
+and lib32-eudev are installed, it causes file conflicts. So install
+udev.pc to $(pkgconfiglibdir) to fix the issue.
+
+Signed-off-by: Kai Kang <kai.kang@windriver.com>
+---
+ src/udev/Makefile.am | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/udev/Makefile.am b/src/udev/Makefile.am
+index 401af01c9..df275ec5d 100644
+--- a/src/udev/Makefile.am
++++ b/src/udev/Makefile.am
+@@ -92,7 +92,7 @@ endif
+ dist_udevconf_DATA = \
+ 	udev.conf
+ 
+-sharepkgconfig_DATA = \
++pkgconfiglib_DATA = \
+ 	udev.pc
+ 
+ EXTRA_DIST = \
+-- 
+2.24.1
+

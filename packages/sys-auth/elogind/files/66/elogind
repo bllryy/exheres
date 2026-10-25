@@ -1,0 +1,14 @@
+[main]
+@type = longrun
+@name = elogind
+@description = "Run the elogind daemon"
+@user = ( root )
+@options = ( log )
+@depends = ( dbus )
+
+[start]
+@build = auto
+@execute = (
+    /usr/lib/elogind/elogind
+)
+

@@ -1,0 +1,245 @@
+--- a/configure.ac
++++ b/configure.ac
+@@ -194,10 +194,7 @@
+                 [AC_DEFINE([UUID_STR_LEN], 37, [compat UUID_STR_LEN define])],
+                 [[#include <uuid/uuid.h>]])
+ 
+-  PKG_CHECK_MODULES(LIBSYSTEMD_LOGIN, [libsystemd >= 209], [have_libsystemd_login=yes],
+-                    [PKG_CHECK_MODULES(LIBSYSTEMD_LOGIN, [libsystemd-login >= 44 libsystemd-daemon],
+-                    [have_libsystemd_login=yes],
+-                    [have_libsystemd_login=no])])
++  have_libsystemd_login=no
+   if test "x$have_libsystemd_login" = "xyes"; then
+     AC_DEFINE([HAVE_LIBSYSTEMD_LOGIN], 1, [Define to 1 if libsystemd-login is available])
+   fi
+--- a/configure
++++ b/configure
+@@ -16523,216 +16523,7 @@
+ fi
+ 
+ 
+-pkg_failed=no
+-{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for libsystemd >= 209" >&5
+-printf %s "checking for libsystemd >= 209... " >&6; }
+-
+-if test -n "$LIBSYSTEMD_LOGIN_CFLAGS"; then
+-    pkg_cv_LIBSYSTEMD_LOGIN_CFLAGS="$LIBSYSTEMD_LOGIN_CFLAGS"
+- elif test -n "$PKG_CONFIG"; then
+-    if test -n "$PKG_CONFIG" && \
+-    { { printf '%s\n' "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"libsystemd >= 209\""; } >&5
+-  ($PKG_CONFIG --exists --print-errors "libsystemd >= 209") 2>&5
+-  ac_status=$?
+-  printf '%s\n' "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+-  test $ac_status = 0; }; then
+-  pkg_cv_LIBSYSTEMD_LOGIN_CFLAGS=`$PKG_CONFIG --cflags "libsystemd >= 209" 2>/dev/null`
+-		      test "x$?" != "x0" && pkg_failed=yes
+-else
+-  pkg_failed=yes
+-fi
+- else
+-    pkg_failed=untried
+-fi
+-if test -n "$LIBSYSTEMD_LOGIN_LIBS"; then
+-    pkg_cv_LIBSYSTEMD_LOGIN_LIBS="$LIBSYSTEMD_LOGIN_LIBS"
+- elif test -n "$PKG_CONFIG"; then
+-    if test -n "$PKG_CONFIG" && \
+-    { { printf '%s\n' "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"libsystemd >= 209\""; } >&5
+-  ($PKG_CONFIG --exists --print-errors "libsystemd >= 209") 2>&5
+-  ac_status=$?
+-  printf '%s\n' "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+-  test $ac_status = 0; }; then
+-  pkg_cv_LIBSYSTEMD_LOGIN_LIBS=`$PKG_CONFIG --libs "libsystemd >= 209" 2>/dev/null`
+-		      test "x$?" != "x0" && pkg_failed=yes
+-else
+-  pkg_failed=yes
+-fi
+- else
+-    pkg_failed=untried
+-fi
+-
+-
+-
+-if test $pkg_failed = yes; then
+-        { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: no" >&5
+-printf '%s\n' "no" >&6; }
+-
+-if $PKG_CONFIG --atleast-pkgconfig-version 0.20; then
+-        _pkg_short_errors_supported=yes
+-else
+-        _pkg_short_errors_supported=no
+-fi
+-        if test $_pkg_short_errors_supported = yes; then
+-                LIBSYSTEMD_LOGIN_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors --cflags --libs "libsystemd >= 209" 2>&1`
+-        else
+-                LIBSYSTEMD_LOGIN_PKG_ERRORS=`$PKG_CONFIG --print-errors --cflags --libs "libsystemd >= 209" 2>&1`
+-        fi
+-        # Put the nasty error message in config.log where it belongs
+-        echo "$LIBSYSTEMD_LOGIN_PKG_ERRORS" >&5
+-
+-
+-pkg_failed=no
+-{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for libsystemd-login >= 44 libsystemd-daemon" >&5
+-printf %s "checking for libsystemd-login >= 44 libsystemd-daemon... " >&6; }
+-
+-if test -n "$LIBSYSTEMD_LOGIN_CFLAGS"; then
+-    pkg_cv_LIBSYSTEMD_LOGIN_CFLAGS="$LIBSYSTEMD_LOGIN_CFLAGS"
+- elif test -n "$PKG_CONFIG"; then
+-    if test -n "$PKG_CONFIG" && \
+-    { { printf '%s\n' "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"libsystemd-login >= 44 libsystemd-daemon\""; } >&5
+-  ($PKG_CONFIG --exists --print-errors "libsystemd-login >= 44 libsystemd-daemon") 2>&5
+-  ac_status=$?
+-  printf '%s\n' "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+-  test $ac_status = 0; }; then
+-  pkg_cv_LIBSYSTEMD_LOGIN_CFLAGS=`$PKG_CONFIG --cflags "libsystemd-login >= 44 libsystemd-daemon" 2>/dev/null`
+-		      test "x$?" != "x0" && pkg_failed=yes
+-else
+-  pkg_failed=yes
+-fi
+- else
+-    pkg_failed=untried
+-fi
+-if test -n "$LIBSYSTEMD_LOGIN_LIBS"; then
+-    pkg_cv_LIBSYSTEMD_LOGIN_LIBS="$LIBSYSTEMD_LOGIN_LIBS"
+- elif test -n "$PKG_CONFIG"; then
+-    if test -n "$PKG_CONFIG" && \
+-    { { printf '%s\n' "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"libsystemd-login >= 44 libsystemd-daemon\""; } >&5
+-  ($PKG_CONFIG --exists --print-errors "libsystemd-login >= 44 libsystemd-daemon") 2>&5
+-  ac_status=$?
+-  printf '%s\n' "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+-  test $ac_status = 0; }; then
+-  pkg_cv_LIBSYSTEMD_LOGIN_LIBS=`$PKG_CONFIG --libs "libsystemd-login >= 44 libsystemd-daemon" 2>/dev/null`
+-		      test "x$?" != "x0" && pkg_failed=yes
+-else
+-  pkg_failed=yes
+-fi
+- else
+-    pkg_failed=untried
+-fi
+-
+-
+-
+-if test $pkg_failed = yes; then
+-        { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: no" >&5
+-printf '%s\n' "no" >&6; }
+-
+-if $PKG_CONFIG --atleast-pkgconfig-version 0.20; then
+-        _pkg_short_errors_supported=yes
+-else
+-        _pkg_short_errors_supported=no
+-fi
+-        if test $_pkg_short_errors_supported = yes; then
+-                LIBSYSTEMD_LOGIN_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors --cflags --libs "libsystemd-login >= 44 libsystemd-daemon" 2>&1`
+-        else
+-                LIBSYSTEMD_LOGIN_PKG_ERRORS=`$PKG_CONFIG --print-errors --cflags --libs "libsystemd-login >= 44 libsystemd-daemon" 2>&1`
+-        fi
+-        # Put the nasty error message in config.log where it belongs
+-        echo "$LIBSYSTEMD_LOGIN_PKG_ERRORS" >&5
+-
+-        have_libsystemd_login=no
+-elif test $pkg_failed = untried; then
+-        { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: no" >&5
+-printf '%s\n' "no" >&6; }
+-        have_libsystemd_login=no
+-else
+-        LIBSYSTEMD_LOGIN_CFLAGS=$pkg_cv_LIBSYSTEMD_LOGIN_CFLAGS
+-        LIBSYSTEMD_LOGIN_LIBS=$pkg_cv_LIBSYSTEMD_LOGIN_LIBS
+-        { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+-printf '%s\n' "yes" >&6; }
+-        have_libsystemd_login=yes
+-fi
+-elif test $pkg_failed = untried; then
+-        { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: no" >&5
+-printf '%s\n' "no" >&6; }
+-
+-pkg_failed=no
+-{ printf '%s\n' "$as_me:${as_lineno-$LINENO}: checking for libsystemd-login >= 44 libsystemd-daemon" >&5
+-printf %s "checking for libsystemd-login >= 44 libsystemd-daemon... " >&6; }
+-
+-if test -n "$LIBSYSTEMD_LOGIN_CFLAGS"; then
+-    pkg_cv_LIBSYSTEMD_LOGIN_CFLAGS="$LIBSYSTEMD_LOGIN_CFLAGS"
+- elif test -n "$PKG_CONFIG"; then
+-    if test -n "$PKG_CONFIG" && \
+-    { { printf '%s\n' "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"libsystemd-login >= 44 libsystemd-daemon\""; } >&5
+-  ($PKG_CONFIG --exists --print-errors "libsystemd-login >= 44 libsystemd-daemon") 2>&5
+-  ac_status=$?
+-  printf '%s\n' "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+-  test $ac_status = 0; }; then
+-  pkg_cv_LIBSYSTEMD_LOGIN_CFLAGS=`$PKG_CONFIG --cflags "libsystemd-login >= 44 libsystemd-daemon" 2>/dev/null`
+-		      test "x$?" != "x0" && pkg_failed=yes
+-else
+-  pkg_failed=yes
+-fi
+- else
+-    pkg_failed=untried
+-fi
+-if test -n "$LIBSYSTEMD_LOGIN_LIBS"; then
+-    pkg_cv_LIBSYSTEMD_LOGIN_LIBS="$LIBSYSTEMD_LOGIN_LIBS"
+- elif test -n "$PKG_CONFIG"; then
+-    if test -n "$PKG_CONFIG" && \
+-    { { printf '%s\n' "$as_me:${as_lineno-$LINENO}: \$PKG_CONFIG --exists --print-errors \"libsystemd-login >= 44 libsystemd-daemon\""; } >&5
+-  ($PKG_CONFIG --exists --print-errors "libsystemd-login >= 44 libsystemd-daemon") 2>&5
+-  ac_status=$?
+-  printf '%s\n' "$as_me:${as_lineno-$LINENO}: \$? = $ac_status" >&5
+-  test $ac_status = 0; }; then
+-  pkg_cv_LIBSYSTEMD_LOGIN_LIBS=`$PKG_CONFIG --libs "libsystemd-login >= 44 libsystemd-daemon" 2>/dev/null`
+-		      test "x$?" != "x0" && pkg_failed=yes
+-else
+-  pkg_failed=yes
+-fi
+- else
+-    pkg_failed=untried
+-fi
+-
+-
+-
+-if test $pkg_failed = yes; then
+-        { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: no" >&5
+-printf '%s\n' "no" >&6; }
+-
+-if $PKG_CONFIG --atleast-pkgconfig-version 0.20; then
+-        _pkg_short_errors_supported=yes
+-else
+-        _pkg_short_errors_supported=no
+-fi
+-        if test $_pkg_short_errors_supported = yes; then
+-                LIBSYSTEMD_LOGIN_PKG_ERRORS=`$PKG_CONFIG --short-errors --print-errors --cflags --libs "libsystemd-login >= 44 libsystemd-daemon" 2>&1`
+-        else
+-                LIBSYSTEMD_LOGIN_PKG_ERRORS=`$PKG_CONFIG --print-errors --cflags --libs "libsystemd-login >= 44 libsystemd-daemon" 2>&1`
+-        fi
+-        # Put the nasty error message in config.log where it belongs
+-        echo "$LIBSYSTEMD_LOGIN_PKG_ERRORS" >&5
+-
+-        have_libsystemd_login=no
+-elif test $pkg_failed = untried; then
+-        { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: no" >&5
+-printf '%s\n' "no" >&6; }
+-        have_libsystemd_login=no
+-else
+-        LIBSYSTEMD_LOGIN_CFLAGS=$pkg_cv_LIBSYSTEMD_LOGIN_CFLAGS
+-        LIBSYSTEMD_LOGIN_LIBS=$pkg_cv_LIBSYSTEMD_LOGIN_LIBS
+-        { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+-printf '%s\n' "yes" >&6; }
+-        have_libsystemd_login=yes
+-fi
+-else
+-        LIBSYSTEMD_LOGIN_CFLAGS=$pkg_cv_LIBSYSTEMD_LOGIN_CFLAGS
+-        LIBSYSTEMD_LOGIN_LIBS=$pkg_cv_LIBSYSTEMD_LOGIN_LIBS
+-        { printf '%s\n' "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+-printf '%s\n' "yes" >&6; }
+-        have_libsystemd_login=yes
+-fi
++  have_libsystemd_login=no
+   if test "x$have_libsystemd_login" = "xyes"; then
+ 
+ printf '%s\n' "#define HAVE_LIBSYSTEMD_LOGIN 1" >>confdefs.h
+--- a/src/udisksdaemonutil.c
++++ b/src/udisksdaemonutil.c
+@@ -50,7 +50,7 @@
+ #include <systemd/sd-login.h>
+ #endif
+ 
+-#if defined(HAVE_ELOGIND) && !defined(HAVE_LIBSYSTEMD_LOGIN)
++#if defined(HAVE_LIBELOGIND) && !defined(HAVE_LIBSYSTEMD_LOGIN)
+ #include <elogind/sd-login.h>
+ /* re-use HAVE_LIBSYSTEMD_LOGIN to not clutter the source file */
+ #define HAVE_LIBSYSTEMD_LOGIN 1

@@ -1,0 +1,13 @@
+# Copyright 2015 Kylie McClain <somasis@exherbo.org>
+# Distributed under the terms of the GNU General Public License v2
+
+OPENRC_SCRIPTS_VER=32
+
+require eudev
+
+PLATFORMS="~amd64 ~armv7 ~armv8 ~x86"
+
+DEFAULT_SRC_PREPARE_PATCHES+=(
+    "${FILES}"/${PN}-3.2.14-78-sound-card.rules-Import-ID_PATH-early.patch
+    "${FILES}"/${PN}-3.2.14-rules-add-mtd-by-name-symlinks.patch
+)

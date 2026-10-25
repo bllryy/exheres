@@ -1,0 +1,38 @@
+# Copyright 2021 Marc-Antoine Perennou <keruspe@exherbo.org>
+# Distributed under the terms of the GNU General Public License v2
+
+require gnome.org [ suffix=tar.xz ] meson
+require systemd-service
+
+SUMMARY="A backend implementation for xdg-desktop-portal for the GNOME desktop environment"
+
+LICENCES="LGPL-2.1"
+SLOT="0"
+MYOPTIONS="systemd"
+PLATFORMS="~amd64"
+
+DEPENDENCIES="
+    build:
+        sys-devel/gettext
+        virtual/pkg-config
+    build+run:
+        dev-libs/glib:2[>=2.62]
+        dev-libs/libadwaita:1[>=1.4.0]
+        gnome-desktop/gnome-desktop:4
+        gnome-desktop/gsettings-desktop-schemas[>=50.0]
+        media-libs/fontconfig
+        sys-apps/dbus
+        systemd? ( sys-apps/systemd[>=242] )
+        sys-apps/xdg-desktop-portal[>=1.17.0]
+        sys-libs/wayland
+        x11-libs/gtk:4.0[>=4.0][X][wayland] [[ note = [ X and wayland are automagic ] ]]
+        x11-libs/libX11
+"
+
+MESON_SRC_CONFIGURE_OPTION_FEATURES=( systemd )
+
+src_configure() {
+    local systemduserunitdir=
+    option systemd && systemduserunitdir=${SYSTEMDUSERUNITDIR}
+    meson_src_configure -Dsystemduserunitdir="${systemduserunitdir}"
+}

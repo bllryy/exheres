@@ -1,0 +1,38 @@
+# Copyright 2025-2026 Timo Gurr <tgurr@exherbo.org>
+# Distributed under the terms of the GNU General Public License v2
+
+require github [ user=containers tag=v${PV} ] meson
+
+SUMMARY="An OCI container runtime monitor"
+
+LICENCES="Apache-2.0"
+SLOT="0"
+PLATFORMS="~amd64 ~armv8"
+MYOPTIONS="systemd [[ description = [ Enable systemd journal support ] ]]"
+
+DEPENDENCIES="
+    build:
+        dev-golang/go-md2man
+        virtual/pkg-config
+    build+run:
+        dev-libs/glib:2
+        systemd? ( sys-apps/systemd )
+        sys-libs/libseccomp[>=2.5.2]
+"
+
+DEFAULT_SRC_PREPARE_PATCHES=( "${FILES}/conmon-2.2.1-optional-systemd.patch" )
+
+MESON_SRC_CONFIGURE_OPTION_SWITCHES=( 'systemd systemd' )
+
+src_compile() {
+    meson_src_compile
+
+    emake -C "${MESON_SOURCE}"/docs
+}
+
+src_install() {
+    meson_src_install
+
+    emake -j1 -C "${MESON_SOURCE}"/docs \
+        DESTDIR="${IMAGE}" PREFIX="/usr/" install
+}

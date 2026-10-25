@@ -1,0 +1,27 @@
+From: Yu Watanabe <watanabe.yu+github@gmail.com>
+Subject: [PATCH] errno-list: filter out EFSBADCRC and EFSCORRUPTED
+
+Backport of systemd commit 3cfb16998808a6ec8012a6120d0a82f0e1a0c8bb:
+https://github.com/systemd/systemd/commit/3cfb16998808a6ec8012a6120d0a82f0e1a0c8bb
+Adapted to elogind 252.9's compiler invocation. These aliases would otherwise
+produce duplicate designated initializers in errno-to-name.h.
+
+--- a/src/basic/generate-errno-list.sh
++++ b/src/basic/generate-errno-list.sh
+@@ -3,9 +3,13 @@
+ set -eu
+ set -o pipefail
+
+-# In kernel's arch/parisc/include/uapi/asm/errno.h, ECANCELLED and EREFUSED are defined as aliases of
+-# ECANCELED and ECONNREFUSED, respectively. Let's drop them.
++# Drop errno aliases:
++# ECANCELLED -> ECANCELED
++# EREFUSED -> ECONNREFUSED
++# EFSBADCRC -> EBADMSG
++# EFSCORRUPTED -> EUCLEAN
++# See kernel's arch/parisc/include/uapi/asm/errno.h for the first two.
+
+ ${1:?} -dM -include errno.h - </dev/null | \
+-       grep -Ev '^#define[[:space:]]+(ECANCELLED|EREFUSED)' | \
++       grep -Ev '^#define[[:space:]]+(ECANCELLED|EREFUSED|EFSBADCRC|EFSCORRUPTED)' | \
+        awk '/^#define[ \t]+E[^ _]+[ \t]+/ { print $2; }'

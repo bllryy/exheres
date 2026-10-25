@@ -1,0 +1,4 @@
+udev-trigger-devices
+udev-trigger-subsystems
+udev-settle
+udevd

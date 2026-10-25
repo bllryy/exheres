@@ -1,0 +1,99 @@
+# Copyright 2025-2026 Timo Gurr <tgurr@exherbo.org>
+# Distributed under the terms of the GNU General Public License v2
+
+require github [ user=containers tag=v${PV} ]
+require systemd-service
+require bash-completion zsh-completion
+
+SUMMARY="Manage Pods, Containers and Container Images"
+HOMEPAGE+=" https://podman.io/"
+
+LICENCES="Apache-2.0"
+SLOT="0"
+PLATFORMS="~amd64 ~armv8"
+MYOPTIONS="
+    systemd [[ description = [ Enable systemd integration ] ]]
+    fish-completion [[ description = [ Install completion files for the fish shell ] ]]
+"
+
+RESTRICT="test"
+
+DEPENDENCIES="
+    build:
+        dev-db/sqlite:3
+        dev-golang/go-md2man
+        dev-lang/go[>=1.26.0]
+        virtual/pkg-config
+    run:
+        app-crypt/gpgme:=
+        app-virtualization/catatonit
+        systemd? ( app-virtualization/conmon[systemd] )
+        !systemd? ( app-virtualization/conmon )
+        app-virtualization/container-libs[>=20260915]
+        dev-libs/libassuan:=
+        dev-libs/libgpg-error
+        sys-fs/btrfs-progs
+        sys-libs/libseccomp
+    build+run:
+        systemd? ( sys-apps/systemd )
+"
+
+DEFAULT_SRC_COMPILE_PARAMS=(
+    BUILD_ORIGIN="Exherbo"
+    CC="$(exhost --target)-cc"
+    CXX="$(exhost --target)-c++"
+    COMMIT_NO=""
+    EPOCH_TEST_COMMIT=""
+    GIT_COMMIT=""
+    PKG_CONFIG="${PKG_CONFIG}"
+    PREFIX="/usr/$(exhost --target)"
+)
+
+DEFAULT_SRC_INSTALL_PARAMS=(
+    BASHINSTALLDIR=${BASHCOMPLETIONDIR}
+    FISHINSTALLDIR="/usr/share/fish"
+    MANDIR="/usr/share/man"
+    PREFIX="/usr/$(exhost --target)"
+    SELINUXOPT=""
+    SYSTEMDDIR=${SYSTEMDSYSTEMUNITDIR}
+    TMPFILESDIR=${SYSTEMDTMPFILESDIR}
+    USERSYSTEMDDIR=${SYSTEMDUSERUNITDIR}
+    ZSHINSTALLDIR=${ZSHCOMPLETIONDIR}
+)
+
+DEFAULT_SRC_PREPARE_PATCHES=( "${FILES}/podman-6.1.4-optional-systemd.patch" )
+
+src_compile() {
+    emake "${DEFAULT_SRC_COMPILE_PARAMS[@]}" EXTRA_BUILDTAGS="$(option systemd systemd '')"
+}
+
+src_prepare() {
+    default
+
+    edo mkdir "${WORKBASE}"/bin
+    edo ln -s /usr/$(exhost --target)/bin/pkg-config "${WORKBASE}"/bin
+    export PATH="${WORKBASE}/bin:${PATH}"
+}
+
+src_install() {
+    emake -j1 DESTDIR="${IMAGE}" "${DEFAULT_SRC_INSTALL_PARAMS[@]}" \
+        EXTRA_BUILDTAGS="$(option systemd systemd '')" install
+    emagicdocs
+
+    keepdir /var/lib/containers
+
+    emake DESTDIR="${IMAGE}" "${DEFAULT_SRC_INSTALL_PARAMS[@]}" install.completions
+    option bash-completion || edo rm -r "${IMAGE}"/usr/share/bash-completion
+    option fish-completion || edo rm -r "${IMAGE}"/usr/share/fish
+    option zsh-completion || edo rm -r "${IMAGE}"/usr/share/zsh
+}
+
+pkg_postinst() {
+    default
+
+    einfo "Rootless Podman requires the user running it to have a range of UIDs"
+    einfo "listed in the files /etc/subuid and /etc/subgid. As an example:"
+    einfo "usermod --add-subuids 100000-165535 --add-subgids 100000-165535 username"
+    einfo "Note that the values for each user must be unique."
+    einfo "See Rootless mode in man page podman(1) for further details."
+}

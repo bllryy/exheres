@@ -1,0 +1,13 @@
+#!/sbin/openrc-run
+# Copyright 1999-2017 Gentoo Foundation
+# Distributed under the terms of the GNU General Public License v2
+
+command="/usr/lib/elogind/elogind"
+command_args_background="--daemon"
+pidfile="/run/${RC_SVCNAME}.pid"
+
+depend() {
+       need dbus
+       use logger
+}
+

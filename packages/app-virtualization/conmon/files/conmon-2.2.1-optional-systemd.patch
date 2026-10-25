@@ -1,0 +1,18 @@
+--- a/meson.build
++++ b/meson.build
+@@ -47,7 +47,10 @@
+   libdl = cc.find_library('dl')
+ endif
+ 
+-sd_journal = dependency('libsystemd', required : false)
++sd_journal = null_dep
++if get_option('systemd')
++	sd_journal = dependency('libsystemd')
++endif
+ if sd_journal.found()
+ 	add_project_arguments('-DUSE_JOURNALD=1', language : 'c')
+ endif
+--- /dev/null
++++ b/meson_options.txt
+@@ -0,0 +1 @@
++option('systemd', type : 'boolean', value : false, description : 'Enable systemd journal support')

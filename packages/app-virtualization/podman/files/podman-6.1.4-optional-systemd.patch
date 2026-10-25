@@ -1,0 +1,24 @@
+--- a/Makefile
++++ b/Makefile
+@@ -63,7 +63,6 @@
+ 	$(shell hack/apparmor_tag.sh) \
+ 	$(shell hack/btrfs_installed_tag.sh) \
+ 	$(shell hack/sqlite_tag.sh) \
+-	$(shell hack/systemd_tag.sh) \
+ 	$(shell hack/libsubid_tag.sh) \
+ 	$(if $(filter linux,$(GOOS)), seccomp,)
+ # allow downstreams to easily add build tags while keeping our defaults
+@@ -909,11 +908,13 @@
+ ifneq ($(NATIVE_GOOS),freebsd)
+ 	install ${SELINUXOPT} -m 755 bin/rootlessport $(DESTDIR)$(LIBEXECPODMAN)/rootlessport
+ 	test -z "${SELINUXOPT}" || chcon --verbose --reference=$(DESTDIR)$(LIBEXECPODMAN)/rootlessport bin/rootlessport
++ifneq (,$(filter systemd,$(BUILDTAGS)))
+ 	install ${SELINUXOPT} -m 755 bin/quadlet $(DESTDIR)$(LIBEXECPODMAN)/quadlet
+ 	install ${SELINUXOPT} -d -m 755 $(DESTDIR)$(SYSTEMDGENERATORSDIR)
+ 	ln -sfr $(DESTDIR)$(LIBEXECPODMAN)/quadlet $(DESTDIR)$(SYSTEMDGENERATORSDIR)/podman-system-generator
+ 	install ${SELINUXOPT} -d -m 755 $(DESTDIR)$(USERSYSTEMDGENERATORSDIR)
+ 	ln -sfr $(DESTDIR)$(LIBEXECPODMAN)/quadlet $(DESTDIR)$(USERSYSTEMDGENERATORSDIR)/podman-user-generator
++endif
+ 	install ${SELINUXOPT} -m 755 -d $(DESTDIR)${TMPFILESDIR}
+ 	install ${SELINUXOPT} -m 644 contrib/tmpfile/podman.conf $(DESTDIR)${TMPFILESDIR}/podman.conf
+ endif

@@ -1,0 +1,151 @@
+# Copyright 2022-2026 Gentoo Authors
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+MESON_SOURCE="${WORKBASE}/systemd-${PV}"
+
+require meson [ cross_prefix=true ] python [ blacklist="2" multibuild=false ]
+
+SUMMARY="Selected systemd utilities without the systemd service manager"
+HOMEPAGE="https://systemd.io/"
+DOWNLOADS="https://github.com/systemd/systemd/archive/v${PV}.tar.gz -> systemd-${PV}.tar.gz"
+
+LICENCES="LGPL-2.1+ GPL-2 MIT public-domain"
+SLOT="0"
+PLATFORMS="~amd64"
+RESTRICT="test"
+MYOPTIONS="
+    acl [[ description = [ Support access control lists ] ]]
+    kmod [[ description = [ Support kernel module loading in udev ] ]]
+    selinux [[ description = [ Support SELinux labels ] ]]
+    boot [[ description = [ Install bootctl and EFI boot loader/stub ] requires = [ kernel-install ] ]]
+    kernel-install [[ description = [ Install kernel-install and its plugins ] ]]
+    sysctl [[ description = [ Install systemd-sysctl ] ]]
+    sysusers [[ description = [ Install systemd-sysusers ] ]]
+    tmpfiles [[ description = [ Install systemd-tmpfiles ] ]]
+    udev [[ description = [ Install udev instead of eudev ] ]]
+    ukify [[ description = [ Install the UKI builder ] requires = [ boot ] ]]
+"
+
+DEPENDENCIES="
+    build:
+        dev-python/Jinja2[python_abis:*(-)?]
+        dev-util/gperf
+        dev-util/pkgconf
+        sys-devel/meson[>=1.4.0]
+        boot? (
+            dev-python/pyelftools[python_abis:*(-)?]
+            sys-devel/binutils
+        )
+    build+run:
+        dev-libs/openssl
+        sys-apps/util-linux
+        sys-libs/libcap
+        acl? ( sys-apps/acl )
+        kmod? ( sys-apps/kmod )
+        selinux? ( security/libselinux )
+    run:
+        !sys-apps/systemd [[ description = [ Both packages install the same utilities ] resolution = uninstall-blocked-after ]]
+        ukify? ( dev-python/pefile[python_abis:*(-)?] )
+        udev? (
+            group/clock
+            group/dialout
+            group/input
+            group/kvm
+            group/render
+            group/sgx
+            !sys-apps/eudev [[ description = [ Both packages provide udev ] resolution = uninstall-blocked-after ]]
+        )
+"
+
+MESON_SRC_CONFIGURE_PARAMS=(
+    --auto-features=disabled
+    -Dmode=release
+    -Dtests=false
+    -Dinstall-tests=false
+    -Dman=disabled
+    -Dhtml=disabled
+    -Dtranslations=false
+    -Dopenssl=enabled
+    -Dblkid=enabled
+    -Dpkgconfigdatadir=/usr/$(exhost --target)/lib/pkgconfig
+)
+MESON_SRC_CONFIGURE_OPTION_SWITCHES=(
+    'boot efi'
+    'kernel-install'
+    'sysusers'
+    'tmpfiles'
+    'udev hwdb'
+)
+
+MESON_SRC_CONFIGURE_OPTION_FEATURES=( 'boot bootloader' ukify acl kmod selinux )
+
+src_prepare() {
+    meson_src_prepare
+    local host=$(exhost --target)
+    edo sed -i "s|/usr/bin/env python3|/usr/$(exhost --build)/bin/python$(python_get_abi)|" "${MESON_SOURCE}"/tools/*.py
+    edo sed -i "s|pymod.find_installation('python3'|pymod.find_installation('/usr/$(exhost --build)/bin/python$(python_get_abi)'|g" "${MESON_SOURCE}/meson.build"
+    edo sed -i "s|/usr/bin/env python3|/usr/${host}/bin/python$(python_get_abi)|" "${MESON_SOURCE}/src/ukify/ukify.py"
+    edo sed -i "s|/usr/lib/systemd|/usr/${host}/lib/systemd|g" "${MESON_SOURCE}/src/ukify/ukify.py"
+}
+
+src_install() {
+    local host=$(exhost --target) stage="${WORKBASE}/utilities-stage"
+    edo env DESTDIR="${stage}" meson install --no-rebuild
+    local prefix="${stage}/usr/${host}"
+
+    insinto /usr/${host}/lib/systemd
+    doins "${prefix}/lib/systemd/libsystemd-shared-${PV%%.*}.so"
+    if option boot ; then
+        exeinto /usr/${host}/bin
+        doexe "${prefix}/bin/bootctl"
+        insinto /usr/${host}/lib/systemd/boot
+        doins -r "${prefix}/lib/systemd/boot/"*
+    fi
+    if option kernel-install ; then
+        exeinto /usr/${host}/bin
+        doexe "${prefix}/bin/kernel-install"
+        edo mkdir -p "${IMAGE}/usr/${host}/lib/kernel"
+        edo cp -a "${prefix}/lib/kernel/." "${IMAGE}/usr/${host}/lib/kernel/"
+    fi
+    if option sysctl ; then
+        exeinto /usr/${host}/lib/systemd
+        doexe "${prefix}/lib/systemd/systemd-sysctl"
+        insinto /usr/${host}/lib/sysctl.d
+        doins "${prefix}/lib/sysctl.d/"*.conf
+    fi
+    if option sysusers ; then
+        exeinto /usr/${host}/bin
+        doexe "${prefix}/bin/systemd-sysusers"
+    fi
+    if option tmpfiles ; then
+        exeinto /usr/${host}/bin
+        doexe "${prefix}/bin/systemd-tmpfiles"
+        insinto /usr/${host}/lib/tmpfiles.d
+        doins "${prefix}/lib/tmpfiles.d/"{etc,home,static-nodes-permissions,var}.conf
+    fi
+    if option ukify ; then
+        exeinto /usr/${host}/bin
+        doexe "${prefix}/bin/ukify"
+        dosym /usr/${host}/bin/ukify /usr/${host}/lib/systemd/ukify
+    fi
+    if option udev ; then
+        exeinto /usr/${host}/bin
+        doexe "${prefix}/bin/"{udevadm,systemd-hwdb}
+        dosym /usr/${host}/bin/udevadm /usr/${host}/bin/udevd
+        insinto /usr/${host}/lib
+        doins "${prefix}/lib/libudev.so.1.7.15"
+        dosym libudev.so.1.7.15 /usr/${host}/lib/libudev.so.1
+        dosym libudev.so.1 /usr/${host}/lib/libudev.so
+        insinto /usr/${host}/include
+        doins "${prefix}/include/libudev.h"
+        insinto /usr/${host}/lib/pkgconfig
+        doins "${prefix}/lib/pkgconfig/libudev.pc"
+        doins "${prefix}/lib/pkgconfig/udev.pc"
+        edo mkdir -p "${IMAGE}/usr/${host}/lib/udev"
+        edo cp -a "${prefix}/lib/udev/." "${IMAGE}/usr/${host}/lib/udev/"
+        edo rm -f "${IMAGE}/usr/${host}/lib/udev/rules.d/"{99-systemd,90-vconsole}.rules
+        insinto /usr/${host}/lib/systemd/network
+        doins "${prefix}/lib/systemd/network/99-default.link"
+    fi
+}

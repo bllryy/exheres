@@ -1,0 +1,27 @@
+# Copyright 2018 Bjorn Pagen <bjornpagen@gmail.com>
+# Copyright 2024 Ali Polatel <alip@hexsys.org>
+# Distributed under the terms of the GNU General Public License v2
+
+require elogind
+
+PLATFORMS="~amd64 ~armv7 ~armv8 ~x86"
+
+RESTRICT="test"
+
+DEFAULT_SRC_PREPARE_PATCHES=(
+    "${FILES}"/0001-Revert-meson-Correctly-validate-that-prefix-is-a-chi.patch
+    "${FILES}"/0002-Revert-meson-refuse-when-prefix-is-not-a-child-of-ro.patch
+    "${FILES}"/void-patches/SEEK_DATA.patch
+    "${FILES}"/void-patches/getdents.patch
+    "${FILES}"/void-patches/gshadow.patch
+    "${FILES}"/void-patches/musl-basename.patch
+    "${FILES}"/void-patches/rlim-max.patch
+    "${FILES}"/void-patches/rootlibexecdir.patch
+    "${FILES}"/void-patches/sigfillset.patch
+    "${FILES}"/void-patches/statx.patch
+    "${FILES}"/void-patches/strerror_r.patch
+    "${FILES}"/void-patches/strerror_r_1.patch
+    "${FILES}"/void-patches/tests.patch
+    "${FILES}"/0003-filter-filesystem-errno-aliases.patch
+)
+

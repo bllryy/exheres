@@ -1,0 +1,31 @@
+Source: Timo Gurr <tgurr@exherbo.org>
+Upstream: No (I'm not sure since we also sed some rootprefix stuff in src_prepare). Needs investigation.
+Reason: Fix build on Exherbo
+
+From 154e2d13b68a518e84584500118f312a8ede0c7b Mon Sep 17 00:00:00 2001
+From: Timo Gurr <tgurr@exherbo.org>
+Date: Sun, 18 Jul 2021 12:51:55 +0200
+Subject: [PATCH] Revert "meson: Correctly validate that prefix is a child of
+ rootprefix"
+
+This reverts commit b2d74870711f859ddc72c5756299d2c2f1659468.
+---
+ meson.build | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/meson.build b/meson.build
+index 5735cfc7ad..d5d6700999 100644
+--- a/meson.build
++++ b/meson.build
+@@ -107,7 +107,7 @@ prefixdir = get_option('prefix')
+ if not prefixdir.startswith('/')
+         error('Prefix is not absolute: "@0@"'.format(prefixdir))
+ endif
+-if prefixdir != rootprefixdir and rootprefixdir != '/' and not prefixdir.strip('/').startswith(rootprefixdir.strip('/') + '/')
++if prefixdir != rootprefixdir and not prefixdir.startswith(rootprefixdir.strip('/') + '/')
+         error('Prefix is not below root prefix (now rootprefix=@0@ prefix=@1@)'.format(
+                 rootprefixdir, prefixdir))
+ endif
+-- 
+2.32.0
+

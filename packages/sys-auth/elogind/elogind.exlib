@@ -1,0 +1,163 @@
+# Copyright 2018 Bjorn Pagen <bjornpagen@gmail.com>
+# Distributed under the terms of the GNU General Public License v2
+# Based in part apon 'elogind-235.2-r2.ebuild' from Gentoo, which is:
+#     Copyright 1999-2018 Gentoo Foundation.
+
+SCM_pwx_REPOSITORY="https://github.com/Yamakuzure/pwx-elogind-migration-tools.git"
+SCM_SECONDARY_REPOSITORIES="pwx"
+SCM_EXTERNAL_REFS="pwx:pwx"
+
+require github [ tag=v${PV} ]
+require meson
+require openrc-service [ openrc_confd_files=[ "${FILES}"/openrc/confd ] ]
+require 66-service
+require bash-completion zsh-completion
+require s6-rc-service
+
+export_exlib_phases src_prepare src_configure src_test src_install
+
+SUMMARY="The systemd project's logind, extracted to a standalone package"
+
+LICENCES="CC0 LGPL-2.1 public-domain"
+SLOT="0"
+MYOPTIONS="
+    acl
+    audit [[ description = [ Enable libaudit support ] ]]
+    doc
+    pam
+    polkit
+    ( providers: 66 openrc s6-rc ) [[ number-selected = at-most-one ]]
+    ( libc: musl )
+"
+
+DEPENDENCIES="
+    build+run:
+        sys-apps/eudev
+        sys-apps/util-linux
+        sys-libs/libcap
+        acl? ( sys-apps/acl )
+        audit? ( app-admin/audit )
+        pam? ( sys-libs/pam )
+        polkit? ( sys-auth/polkit:1[>=0.106] )
+    build:
+        app-text/docbook-xml-dtd:4.2
+        app-text/docbook-xml-dtd:4.5
+        dev-util/gperf
+        dev-util/intltool
+        sys-devel/libtool
+        virtual/pkg-config
+    run:
+        !sys-apps/systemd [[
+            description = [ sys-apps/systemd and this package both provide logind ]
+            resolution = manual
+        ]]
+    test:
+        sys-apps/dbus
+    post:
+        sys-apps/dbus
+"
+
+if ever at_least 252_rc1; then
+    DEPENDENCIES+="
+        build:
+            dev-python/Jinja2[python_abis:*(-)?]
+    "
+fi
+
+elogind_src_prepare() {
+    meson_src_prepare
+    edo sed -e "s: = prefixdir / 'lib: = rootprefixdir / 'lib:" -i meson.build
+}
+
+elogind_src_configure() {
+    local params=(
+        -Dfuzz-tests=false
+        -Dinstall-tests=false
+        -Dlocalstatedir=/var
+        -Dman=true
+        -Dsplit-usr=false
+        -Drootlibdir=/usr/$(exhost --target)/lib
+        -Drootprefix=/usr/$(exhost --target)
+        -Ddocdir=/usr/share/doc/${PNVR}
+        -Dsmack=false
+
+        $(meson_switch acl)
+        $(meson_switch audit)
+        $(meson_switch doc html)
+        $(meson_switch pam)
+        $(meson_switch polkit)
+
+        $(expecting_tests && echo '-Ddbus=true' || echo '-Ddbus=false')
+        $(expecting_tests && echo '-Dtests=true' || echo '-Dtests=false')
+    )
+
+    if ever at_least 252; then
+        params+=(
+            -Ddefault-user-shell=/bin/bash
+            -Defi-tpm-pcr-compat=false
+            -Dlog-message-verification=false
+            -Dskip-deps=false
+        )
+    fi
+
+    if optionq providers:openrc; then
+        local rccgroupmode="$(grep rc_cgroup_mode /etc/rc.conf | cut -d '"' -f 2)"
+        local cgroupmode="legacy"
+
+        if [[ "xhybrid" = "x${rccgroupmode}" ]] ; then
+            cgroupmode="hybrid"
+        elif [[ "xunified" = "x${rccgroupmode}" ]] ; then
+            cgroupmode="unified"
+        fi
+
+        params+=(
+            -Dcgroup-controller=openrc
+            -Ddefault-hierarchy=${cgroupmode}
+        )
+    elif optionq providers:66 || optionq providers:s6-rc ; then
+        params+=(
+            -Dcgroup-controller=elogind
+            -Ddefault-hierarchy=unified
+        )
+    fi
+
+    if [[ $(exhost --target) == *-musl* ]]; then
+        params+=(
+            -Dutmp=false
+        )
+    else
+        params+=(
+            -Dutmp=true
+       )
+    fi
+
+    if ! optionq bash-completion; then
+        params+=( -Dbashcompletiondir=no )
+    fi
+
+    if ! optionq zsh-completion; then
+        params+=( -Dzshcompletiondir=no )
+    fi
+
+    meson_src_configure ${params[@]}
+}
+
+elogind_src_test() {
+    if [[ -f /etc/machine-id ]]; then
+        meson_src_test
+    else
+        ewarn "The tests require a valid, initialised /etc/machine-id which you don't seem to"
+        ewarn "have. Please run regenerate your machine-id if you want to run the tests. This"
+        ewarn "can be done by running \"dbus-uuidgen --ensure=/etc/machine-id\"."
+    fi
+}
+
+elogind_src_install() {
+    keepdir /var/lib/${PN}
+    meson_src_install
+
+    install_66_files
+    install_openrc_files
+    install_s6-rc_files
+}
+

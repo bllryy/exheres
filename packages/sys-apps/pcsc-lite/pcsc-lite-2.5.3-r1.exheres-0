@@ -1,0 +1,84 @@
+# Copyright 2009-2017 Pierre Lejeune <superheron@gmail.com>
+# Distributed under the terms of the GNU General Public License v2
+# Based in part upon 'pcsc-lite-1.5.3.ebuild' from Gentoo, which is:
+#     Copyright 1999-2009 Gentoo Foundation
+
+require option-renames [ renames=[ 'policykit polkit' ] ]
+require s6-rc-service
+require meson
+
+SUMMARY="PC/SC Architecture smartcard middleware library"
+DESCRIPTION="Middleware to access a smart card using SCard API (PC/SC)."
+HOMEPAGE="https://pcsclite.apdu.fr/"
+DOWNLOADS="${HOMEPAGE}files/${PNV}.tar.xz"
+
+LICENCES="BSD-0 BSD-2 BSD-3 GPL-3"
+SLOT="0"
+PLATFORMS="~amd64 ~x86"
+MYOPTIONS="
+    polkit [[ description = [ Allow pcscd to run as separate user ] ]]
+    (
+        libusb [[ description = [ Use libusb support instead of udev ] ]]
+        providers: eudev systemd
+    ) [[ number-selected = exactly-one ]]
+"
+
+DEPENDENCIES="
+    build:
+        dev-lang/perl:* [[ note = [ pod2man ] ]]
+        sys-devel/flex
+        virtual/pkg-config
+    build+run:
+        libusb? ( dev-libs/libusb:1 )
+        providers:eudev? ( sys-apps/eudev )
+        providers:systemd? ( sys-apps/systemd )
+        polkit? (
+            dev-libs/glib:2
+            sys-auth/polkit:1[>=0.111]
+        )
+    run:
+        group/pcscd
+        user/pcscd
+"
+
+MESON_SRC_CONFIGURE_PARAMS=(
+    -Dusbdropdir=/usr/$(exhost --target)/lib/pcsc/drivers
+
+    -Dserial=false
+    -Dsystemdunit=system
+)
+MESON_SRC_CONFIGURE_OPTION_SWITCHES=(
+    'polkit'
+    'libusb'
+    '!libusb libudev'
+    'providers:systemd libsystemd'
+)
+
+src_prepare() {
+    meson_src_prepare
+
+    edo sed -e "s|'share/doc/pcsc-lite'|'share/doc/${PNVR}'|" -i meson.build
+}
+
+src_install() {
+    meson_src_install
+
+    if ! option providers:systemd; then
+        edo rm "${IMAGE}/usr/lib/systemd/system/pcscd.service" \
+            "${IMAGE}/usr/lib/systemd/system/pcscd.socket"
+        edo rmdir "${IMAGE}/usr/lib/systemd/system" \
+            "${IMAGE}/usr/lib/systemd" "${IMAGE}/usr/lib"
+    fi
+
+    dodoc HELP SECURITY
+
+    keepdir /etc/reader.conf.d
+    keepdir /usr/$(exhost --target)/lib/pcsc/drivers
+
+    insinto /usr/$(exhost --target)/lib/tmpfiles.d
+    hereins ${PN}.conf <<EOF
+d /run/pcscd 0755 pcscd pcscd
+EOF
+    install_s6-rc_files
+}
+

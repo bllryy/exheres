@@ -1,0 +1,3 @@
+# /etc/conf.d/elogind: config file for /etc/init.d/elogind
+
+# No user configurable options, file is subject for removal
