@@ -13,15 +13,17 @@ LICENCES="GPL-2"
 SLOT="0"
 PLATFORMS="~amd64"
 MYOPTIONS="
+    ( providers: eudev systemd ) [[ number-selected = exactly-one ]]
     crypt [[ description = [ Support encrypted devices using cryptsetup ] ]]
-    uki [[ description = [ Enable UKI creation using systemd ukify and EFI stub ] ]]
+    uki [[ description = [ Enable UKI creation using an EFI stub ] ]]
 "
 
 DEPENDENCIES="
     build:
         sys-devel/meson[>=1.4.0]
     build+run:
-        sys-apps/systemd
+        providers:eudev? ( sys-apps/eudev )
+        providers:systemd? ( sys-apps/systemd )
     run:
         app-arch/cpio
         app-arch/gzip
@@ -41,7 +43,10 @@ DEPENDENCIES="
         sys-devel/gcc
         sys-libs/glibc
         crypt? ( sys-fs/cryptsetup )
-        uki? ( sys-apps/systemd[uki] )
+        uki? (
+            providers:eudev? ( sys-apps/systemd-utils[boot][ukify] )
+            providers:systemd? ( sys-apps/systemd[uki] )
+        )
 "
 
 MESON_SRC_CONFIGURE_PARAMS=(
@@ -60,6 +65,7 @@ src_prepare() {
 
     edo sed -i \
         -e "s|@BINDIR@:/bin|@BINDIR@:/usr/${host}/bin:/usr/bin:/bin|" mkinitcpio
+    edo sed -i "s|/usr/lib/{systemd/boot/efi,gummiboot}/|/usr/${host}/lib/{systemd/boot/efi,gummiboot}/|" mkinitcpio
     edo sed -i "s|/usr/lib/initcpio/busybox|/usr/${host}/bin/busybox|g" install/base
     edo sed -i "s|/usr/lib/initcpio|/usr/${host}/lib/initcpio|g" \
         mkinitcpio functions init shutdown install/* hooks/*
@@ -73,7 +79,7 @@ src_prepare() {
     edo sed -i 's|@UDEVD_PATH@|/usr/bin/udevd|g' hooks/udev
     edo sed -i 's|/usr/share/kbd/|/usr/share/|g' install/consolefont functions
     edo sed -i \
-        "s|add_binary /usr/lib/systemd/systemd-hibernate-resume|add_binary \"\$(realpath /usr/${host}/lib/systemd/systemd-hibernate-resume)\" /usr/lib/systemd/systemd-hibernate-resume|" \
+        "s|add_binary /usr/lib/systemd/systemd-hibernate-resume.*|if [[ -x /usr/${host}/lib/systemd/systemd-hibernate-resume ]]; then add_binary \"\$(realpath /usr/${host}/lib/systemd/systemd-hibernate-resume)\" /usr/lib/systemd/systemd-hibernate-resume; fi|" \
         install/resume
     edo sed -i \
         -e "s|'/usr/bin/udevadm'|'udevadm'|" \
