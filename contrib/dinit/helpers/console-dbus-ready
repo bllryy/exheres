@@ -1,5 +1,4 @@
 #!/bin/sh
-# Neither stock D-Bus fork completion nor --print-address means ready.
 set -eu
 PATH=/usr/x86_64-pc-linux-gnu/bin:/usr/bin:/bin
 export PATH

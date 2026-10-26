@@ -10,7 +10,6 @@ import subprocess
 import sys
 import time
 
-# Below service stop-timeout (15s). SIGKILL fallback cannot confirm lockdown.
 SIGNAL_TIMEOUT = 5
 
 DAEMON = '/usr/x86_64-pc-linux-gnu/bin/mullvad-daemon'
@@ -55,18 +54,14 @@ def supervise(command, resource):
                     print('console-mullvad: signal timeout; killing child; lockdown unconfirmed', file=sys.stderr)
                     child.kill()
                     child.wait()
-                    # SIGKILL cannot establish restart lockdown. Fail service instead
-                    # of claiming a protected replacement; dinit may auto-restart it.
                     return 1
                 try:
                     child.wait(timeout=0.05)
                 except subprocess.TimeoutExpired:
                     pass
-            # A stop racing child exit must not launch another daemon.
             if stopping or any(s in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP, signal.SIGQUIT) for s in pending):
                 return 0
             if not restart:
-                # Unexpected exit is delegated to dinit's bounded restart policy.
                 return child.returncode if child.returncode > 0 else 1
         finally:
             if child.poll() is None:

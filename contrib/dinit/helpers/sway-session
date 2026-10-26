@@ -1,5 +1,4 @@
 #!/bin/sh
-# Sway's graphical-env hook must import compositor-created variables separately.
 
 fail() { printf '%s\n' "sway-session: $*" >&2; exit 1; }
 
@@ -12,7 +11,6 @@ if [ -z "${DBUS_SESSION_BUS_ADDRESS-}" ]; then
     export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
 fi
 
-# Turnstile supplies dinit; never start a second manager or private session bus.
 SWAY_SESSION_MANAGER=${SWAY_SESSION_MANAGER:-dinit}
 case $SWAY_SESSION_MANAGER in
     systemd)

@@ -1,7 +1,5 @@
 #!/bin/sh
-# Validate inherited mounts and complete the writable-root handoff.
 set -eu
-# Keep boot failures visible even when the service log is buffered.
 if [ -c /dev/console ]; then
     exec 2>/dev/console
 fi
@@ -33,7 +31,6 @@ for entry in '/dev/pts devpts' '/dev/shm tmpfs'; do
         :
     else
         status=$?
-        # Only create missing children; never replace inherited mounts.
         [ "$status" -eq 1 ] && [ -z "$actual" ] || fail "cannot inspect $1"
         mkdir -p "$1"
         case "$1" in
@@ -47,4 +44,3 @@ for entry in '/dev/pts devpts' '/dev/shm tmpfs'; do
     case ,$options, in *,rw,*) ;; *) fail "$1 is not writable" ;; esac
 done
 [ -c /dev/console ] && [ -c /dev/tty1 ] || fail 'console devices unavailable'
-# No mount -a, swap activation, filesystem repair, or shutdown actions.

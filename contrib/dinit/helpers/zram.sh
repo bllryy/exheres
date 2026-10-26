@@ -19,7 +19,6 @@
 # CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 # ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 # POSSIBILITY OF SUCH DAMAGE.
-# Upstream formats devices; this service also owns their swap activation.
 set -eu
 
 PATH=/usr/x86_64-pc-linux-gnu/bin:/usr/bin:/bin
@@ -39,7 +38,6 @@ case ${1-} in
     start)
         modprobe zram
         if active; then
-            # A surviving owned device is safe across a soft service restart.
             test -f "$marker" && exit 0
             printf '%s\n' "$device already active under another manager" >&2
             exit 1
@@ -48,7 +46,6 @@ case ${1-} in
             read -r size < "/sys/block/$device/disksize"
             if test "$size" != 0; then
                 if test -f "$marker"; then
-                    # Previous swapon failed, or swap was disabled externally.
                     "$helper" "$device" stop
                 else
                     printf '%s\n' "$device already configured under another manager" >&2
@@ -56,21 +53,17 @@ case ${1-} in
                 fi
             fi
         fi
-        # Record ownership before setup so a failed format can be cleaned up.
         : > "$marker"
         "$helper" "$device"
-        # Preserve old console-zram's kernel-default priority (no -p option).
         swapon "/dev/$device"
         ;;
     stop)
         test -f "$marker" || exit 0
-        # Never reset live swap after a failed swapoff (e.g. insufficient RAM).
         if active; then
             swapoff "/dev/$device"
         fi
         if test -d "/sys/block/$device"; then
             "$helper" "$device" stop
-            # Upstream stop does not propagate reset errors. Verify removal.
             test ! -d "/sys/block/$device"
         fi
         rm -f "$marker"

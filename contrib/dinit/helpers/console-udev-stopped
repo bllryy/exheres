@@ -1,6 +1,4 @@
 #!/bin/sh
-# mkinitcpio 42.2 requests exit but does not wait before switch_root.
-# Do not signal processes or trust a stale PID file/socket.
 set -eu
 PATH=/usr/x86_64-pc-linux-gnu/bin:/usr/bin:/bin
 export PATH

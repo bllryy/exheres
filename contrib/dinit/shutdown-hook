@@ -1,8 +1,4 @@
 #!/bin/sh
-# dinit v0.22.1 runs this after stopping services and killing remaining processes.
-# A successful hook suppresses its fallback swapoff and umount -a -r.
-# Soft reboot re-execs PID1 without initramfs: preserve the inherited mounts
-# and swap, including writable XFS root and /run. Preflight still validates them.
 set -eu
 PATH=/usr/x86_64-pc-linux-gnu/bin:/usr/bin:/bin
 export PATH
@@ -10,6 +6,5 @@ export PATH
 [ "$#" -eq 1 ] || exit 1
 case "$1" in
     soft) sync ;;
-    # Leave real shutdown teardown to dinit's default implementation.
     *) exit 1 ;;
 esac

@@ -1,12 +1,5 @@
 #!/bin/sh
-# Single-session hooks. Sway: exec /absolute/path/graphical-env import
-# Wrapper: run cleanup after Sway exits, including signal/error paths; wait for
-# any in-flight import first. Do not use exec_always or run import before Sway.
-# Requires Turnstile's dinit backend and its user graphical service.
-# D-Bus cannot delete activation variables: cleanup writes empty values instead.
-# No concurrent graphical sessions on the same user manager/bus are supported.
 
-# Wrapper selects manager; never touch dinit for a systemd-managed session.
 case "${SWAY_SESSION_MANAGER-}" in
     dinit) ;;
     systemd)
@@ -34,8 +27,6 @@ case "${SWAY_SESSION_MANAGER-}" in
     *) printf '%s\n' 'graphical-env: SWAY_SESSION_MANAGER must be dinit or systemd' >&2; exit 2 ;;
 esac
 
-# Wrapper supplies a private per-session directory and active marker. Keep the
-# lock file until all hooks exit; cleanup invalidates queued imports under lock.
 [ -n "${SWAY_SESSION_STATE-}" ] && [ -d "$SWAY_SESSION_STATE" ] || exit 2
 exec 9>"$SWAY_SESSION_STATE/lock" || exit 1
 flock -x 9 || exit 1
@@ -45,8 +36,6 @@ names='DISPLAY WAYLAND_DISPLAY SWAYSOCK XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP 
 cleanup() {
     result=0
     rm -f "$SWAY_SESSION_STATE/active" || result=1
-    # Backend monitor triggers on ANY DISPLAY/WAYLAND_DISPLAY change, including
-    # unset. Stop it before mutation so cleanup cannot re-trigger the target.
     dinitctl --user stop graphical.monitor || result=1
     dinitctl --user unsetenv $names || result=1
     dinitctl --user untrigger graphical.target || result=1
@@ -60,7 +49,6 @@ case "${1-}" in
     import)
         [ "$#" -eq 1 ] || exit 2
         [ -f "$SWAY_SESSION_STATE/active" ] || exit 1
-        # These values must come from the compositor, never a login shell.
         if [ -z "${WAYLAND_DISPLAY-}" ] || [ -z "${SWAYSOCK-}" ] ||
            [ -z "${DBUS_SESSION_BUS_ADDRESS-}" ]; then
             printf '%s\n' 'graphical-env: import requires running Sway and user D-Bus' >&2
@@ -72,15 +60,10 @@ case "${1-}" in
         XDG_SESSION_DESKTOP=${XDG_SESSION_DESKTOP:-sway}
         XDG_SESSION_TYPE=wayland
         export XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE
-        # Explicit assignments also clear optional values left by an old session.
         set -- "SWAYSOCK=$SWAYSOCK" \
             "XDG_CURRENT_DESKTOP=$XDG_CURRENT_DESKTOP" \
             "XDG_SESSION_DESKTOP=$XDG_SESSION_DESKTOP" \
             "XDG_SESSION_TYPE=$XDG_SESSION_TYPE" "XAUTHORITY=${XAUTHORITY-}"
-        # Boot milestones remain hard dependencies until boot finishes starting.
-        # Stopping the monitor here also stops its still-pending graphical target
-        # and aborts boot. Cleanup already resets the previous session.
-        # Publish monitor-watched display variables last, after session metadata.
         if ! dbus-update-activation-environment "$@" "DISPLAY=${DISPLAY-}" "WAYLAND_DISPLAY=$WAYLAND_DISPLAY" ||
            ! dinitctl --user setenv "$@" ||
            ! dinitctl --user setenv "DISPLAY=${DISPLAY-}" "WAYLAND_DISPLAY=$WAYLAND_DISPLAY" ||

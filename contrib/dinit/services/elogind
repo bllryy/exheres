@@ -1,5 +1,4 @@
 type = process
-# Foreground is default; --daemon would escape dinit supervision.
 command = /usr/lib/elogind/elogind
 depends-on = dbus-ready
 depends-on = cgroups

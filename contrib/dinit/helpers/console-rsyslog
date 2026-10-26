@@ -8,8 +8,6 @@ ARGV = [BINARY, '-n', '-i', '/run/rsyslogd.pid', '-f', '/etc/dinit.d/rsyslog.con
 
 
 def main():
-    # lexists includes dangling symlinks. Competing socket activation must stay off;
-    # this preflight cannot prevent another manager racing to create /dev/log.
     if os.path.lexists('/dev/log'):
         raise RuntimeError('/dev/log already exists; stop competing logger/socket before starting rsyslog')
     os.execv(BINARY, ARGV)

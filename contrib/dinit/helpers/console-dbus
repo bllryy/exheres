@@ -33,7 +33,6 @@ def check_socket(directory=Path('/run/dbus')):
                 raise RuntimeError(f'{endpoint}: cannot establish staleness: {error}') from error
         else:
             raise RuntimeError(f'{endpoint}: system bus is already listening')
-    # dbus-daemon replaces stale sockets itself; no manual unlink is needed.
 
 
 def main():

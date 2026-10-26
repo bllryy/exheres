@@ -1,5 +1,4 @@
 #!/bin/sh
-# Verified Exherbo iproute2 executable; never tear loopback down on stop.
 set -eu
 
 [ "$#" -eq 0 ] || { printf '%s\n' 'console-loopback: no arguments expected' >&2; exit 2; }

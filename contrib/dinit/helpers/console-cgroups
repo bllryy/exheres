@@ -58,7 +58,6 @@ def initialize(root=Path('/sys/fs/cgroup'), legacy=Path('/run/cgroup-net-cls'),
         safe_directory(path)
         if 'rw' not in table[path][0][1]:
             raise RuntimeError(f'read-only net_cls at {path}')
-    # Validate both targets before making any mounts. Preserve valid mounts.
     needed = []
     if root not in table:
         needed.append((root, 'cgroup2', 'nsdelegate', 'cgroup2'))

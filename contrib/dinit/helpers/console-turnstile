@@ -31,7 +31,6 @@ def runtime():
 
 
 def ready():
-    # Never retain a marker from an earlier failed readiness attempt.
     MARKER.unlink(missing_ok=True)
     deadline = time.monotonic() + 15
     while time.monotonic() < deadline:
@@ -53,8 +52,6 @@ def ready():
 
 def main(action):
     if action == 'marked':
-        # pam_exec calls both open_session and close_session. Marker stays until
-        # service shutdown; do not gate close_session on current socket health.
         return 0 if marked() else 1
     if os.geteuid() != 0:
         raise RuntimeError('root required')
