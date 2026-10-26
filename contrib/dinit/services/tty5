@@ -1,0 +1,7 @@
+type = process
+command = /usr/x86_64-pc-linux-gnu/bin/agetty --noclear tty5 linux
+inittab-id = 5
+inittab-line = tty5
+restart = true
+depends-on: local-mounts
+depends-on = turnstile-ready

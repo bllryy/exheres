@@ -1,8 +1,5 @@
 type = process
 command = /usr/x86_64-pc-linux-gnu/bin/udevd --resolve-names=early
 log-type = buffer
-restart = true
+restart = false
 depends-on: udev-stopped
-restart-delay = 2
-restart-limit-interval = 60
-restart-limit-count = 5

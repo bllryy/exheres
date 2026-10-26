@@ -1,0 +1,7 @@
+type = process
+command = /usr/x86_64-pc-linux-gnu/bin/agetty --noclear tty3 linux
+inittab-id = 3
+inittab-line = tty3
+restart = true
+depends-on: local-mounts
+depends-on = turnstile-ready

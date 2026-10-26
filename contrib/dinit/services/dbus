@@ -1,6 +1,8 @@
-type = bgprocess
+type = process
 command = /etc/dinit.d/helpers/console-dbus
-pid-file = /run/dbus.pid
+ready-notification = pipefd:4
 working-dir = /
+log-type = buffer
+log-buffer-size = 65536
 depends-on: local-mounts
 depends-on: loopback

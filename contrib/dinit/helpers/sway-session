@@ -1,0 +1,114 @@
+#!/bin/sh
+# Sway's graphical-env hook must import compositor-created variables separately.
+
+fail() { printf '%s\n' "sway-session: $*" >&2; exit 1; }
+
+case ${XDG_RUNTIME_DIR-} in
+    /*) [ -d "$XDG_RUNTIME_DIR" ] || fail 'XDG_RUNTIME_DIR is not a directory' ;;
+    *) fail 'XDG_RUNTIME_DIR must be an absolute directory' ;;
+esac
+if [ -z "${DBUS_SESSION_BUS_ADDRESS-}" ]; then
+    [ -S "$XDG_RUNTIME_DIR/bus" ] || fail 'shared user bus socket is unavailable'
+    export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
+fi
+
+# Turnstile supplies dinit; never start a second manager or private session bus.
+SWAY_SESSION_MANAGER=${SWAY_SESSION_MANAGER:-dinit}
+case $SWAY_SESSION_MANAGER in
+    systemd)
+        systemctl --user show-environment >/dev/null 2>&1 || fail 'systemd user manager unavailable'
+        ;;
+    dinit)
+        dinitctl --user list >/dev/null 2>&1 || fail 'dinit user manager unavailable'
+        ;;
+    *) fail 'SWAY_SESSION_MANAGER must be systemd or dinit' ;;
+esac
+export SWAY_SESSION_MANAGER
+export XDG_CURRENT_DESKTOP=sway
+export XDG_SESSION_DESKTOP=sway
+export XDG_SESSION_TYPE=wayland
+export MOZ_ENABLE_WAYLAND=1
+export QT_QPA_PLATFORM=wayland
+export SDL_VIDEODRIVER=wayland
+
+ssh_auth_sock_set=${SSH_AUTH_SOCK+x}
+ssh_auth_sock_previous=${SSH_AUTH_SOCK-}
+ssh_auth_sock_published=0
+
+cleanup() {
+    status=$?
+    trap - 0
+    trap '' HUP INT TERM
+    result=0
+    if [ "$SWAY_SESSION_MANAGER" = systemd ]; then
+        systemctl --user stop sway-session.target || result=1
+        sh "$(dirname "$0")/graphical-env" cleanup || result=1
+    elif [ -n "${SWAY_SESSION_STATE-}" ]; then
+        if sh "$(dirname "$0")/graphical-env" cleanup; then
+            rm -rf -- "$SWAY_SESSION_STATE" || result=1
+        else
+            printf '%s\n' "sway-session: cleanup failed; retained state: $SWAY_SESSION_STATE" >&2
+            result=1
+        fi
+    fi
+    if [ "$SWAY_SESSION_MANAGER" = dinit ] && [ "$ssh_auth_sock_published" = 1 ]; then
+        dbus-update-activation-environment "SSH_AUTH_SOCK=$ssh_auth_sock_previous" || result=1
+        if [ "$ssh_auth_sock_set" = x ]; then
+            dinitctl --user setenv "SSH_AUTH_SOCK=$ssh_auth_sock_previous" || result=1
+        else
+            dinitctl --user unsetenv SSH_AUTH_SOCK || result=1
+        fi
+    fi
+    [ "$status" -ne 0 ] || status=$result
+    exit "$status"
+}
+child=
+pending_signal=
+pending_status=
+interrupt() {
+    trap '' HUP INT TERM
+    if [ -n "$child" ]; then
+        kill -"$1" "$child" 2>/dev/null
+        wait "$child" 2>/dev/null
+    fi
+    exit "$2"
+}
+trap cleanup 0
+trap 'pending_signal=HUP; pending_status=129' HUP
+trap 'pending_signal=INT; pending_status=130' INT
+trap 'pending_signal=TERM; pending_status=143' TERM
+
+if [ "$SWAY_SESSION_MANAGER" = dinit ]; then
+    SWAY_SESSION_STATE=$(mktemp -d "$XDG_RUNTIME_DIR/sway-session.XXXXXXXXXX") || fail 'cannot create session state'
+    export SWAY_SESSION_STATE
+    : > "$SWAY_SESSION_STATE/active" || fail 'cannot mark session active'
+fi
+
+if [ "$SWAY_SESSION_MANAGER" = systemd ]; then
+    systemctl --user import-environment \
+        XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE || fail 'systemd environment import failed'
+    dbus-update-activation-environment --systemd \
+        XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE || fail 'D-Bus environment import failed'
+    systemctl --user start sway-session.target || fail 'systemd session target failed'
+else
+    dinitctl --user start gcr-ssh-agent || fail 'GCR SSH agent failed'
+    export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/gcr/ssh"
+    ssh_auth_sock_published=1
+    dbus-update-activation-environment SSH_AUTH_SOCK || fail 'SSH_AUTH_SOCK D-Bus import failed'
+    dinitctl --user setenv SSH_AUTH_SOCK || fail 'SSH_AUTH_SOCK import failed'
+    dinitctl --user setenv XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE || fail 'dinit environment import failed'
+    dbus-update-activation-environment \
+        XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE || fail 'D-Bus environment import failed'
+fi
+
+
+
+sway "$@" &
+child=$!
+trap 'interrupt HUP 129' HUP
+trap 'interrupt INT 130' INT
+trap 'interrupt TERM 143' TERM
+[ -z "$pending_signal" ] || interrupt "$pending_signal" "$pending_status"
+wait "$child"
+status=$?
+exit "$status"

@@ -3,6 +3,3 @@ command = /usr/host/bin/nscd --foreground
 log-type = buffer
 restart = true
 depends-on: nscd-runtime
-restart-delay = 2
-restart-limit-interval = 60
-restart-limit-count = 5

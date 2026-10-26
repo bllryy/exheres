@@ -1,24 +1,54 @@
-#!/bin/sh
-# Exherbo system bus candidate. Chimera reference: main/dbus/files/dbus-daemon.
-# Probe protocol readiness; stock fork completion and print-address occur too early.
-set -eu
-PATH=/usr/x86_64-pc-linux-gnu/bin:/usr/bin:/bin
-export PATH
+#!/usr/bin/python3 -I
+"""Start supervised system bus, allowing a stale socket after soft reboot."""
+import errno
+import os
+from pathlib import Path
+import socket
+import stat
+import sys
 
-fail() {
-    printf '%s\n' "console-dbus: $*" >&2
-    exit 1
-}
 
-[ "$#" -eq 0 ] || fail 'no arguments accepted'
-# Never replace a live socket or remove a possibly live daemon pidfile.
-[ ! -e /run/dbus/system_bus_socket ] || fail 'system bus socket already exists'
-[ ! -L /run/dbus/system_bus_socket ] || fail 'system bus socket is a symlink'
-[ ! -e /run/dbus.pid ] || fail 'system bus pidfile already exists'
-[ ! -L /run/dbus.pid ] || fail 'system bus pidfile is a symlink'
-# Machine identity must be provisioned offline, not generated during boot.
-[ -s /var/lib/dbus/machine-id ] || fail '/var/lib/dbus/machine-id missing or empty'
-[ ! -L /run/dbus ] || fail '/run/dbus must not be a symlink'
-umask 022
-mkdir -p -m 0755 /run/dbus
-exec dbus-daemon --system --fork
+def check_socket(directory=Path('/run/dbus')):
+    try:
+        info = directory.lstat()
+    except FileNotFoundError:
+        return
+    if (not stat.S_ISDIR(info.st_mode) or info.st_uid != 0
+            or info.st_mode & 0o022):
+        raise RuntimeError(f'{directory}: expected root-owned, non-writable directory')
+    endpoint = directory / 'system_bus_socket'
+    try:
+        info = endpoint.lstat()
+    except FileNotFoundError:
+        return
+    if not stat.S_ISSOCK(info.st_mode) or info.st_uid != 0 or info.st_nlink != 1:
+        raise RuntimeError(f'{endpoint}: unexpected type, owner, or link count')
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as probe:
+        probe.settimeout(1)
+        try:
+            probe.connect(str(endpoint))
+        except OSError as error:
+            if error.errno != errno.ECONNREFUSED:
+                raise RuntimeError(f'{endpoint}: cannot establish staleness: {error}') from error
+        else:
+            raise RuntimeError(f'{endpoint}: system bus is already listening')
+    # dbus-daemon replaces stale sockets itself; no manual unlink is needed.
+
+
+def main():
+    if len(sys.argv) != 1:
+        raise RuntimeError('no arguments accepted')
+    check_socket()
+    machine_id = Path('/var/lib/dbus/machine-id')
+    if not machine_id.is_file() or machine_id.stat().st_size == 0:
+        raise RuntimeError('missing /var/lib/dbus/machine-id; provision it offline')
+    os.execv('/usr/x86_64-pc-linux-gnu/bin/dbus-daemon',
+             ['dbus-daemon', '--system', '--nofork', '--nopidfile', '--print-address=4'])
+
+
+if __name__ == '__main__':
+    try:
+        main()
+    except (OSError, RuntimeError) as error:
+        print(f'console-dbus: {error}', file=sys.stderr)
+        sys.exit(1)

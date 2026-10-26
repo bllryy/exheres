@@ -2,5 +2,6 @@ type = process
 command = /usr/bin/turnstiled
 depends-on = runtime
 depends-on = dbus-ready
+depends-on = elogind
 stop-timeout = 130
 depends-on: seatd

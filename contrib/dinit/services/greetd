@@ -1,0 +1,9 @@
+type = process
+command = /usr/host/bin/greetd --config /etc/greetd/config.toml
+log-type = buffer
+log-buffer-size = 65536
+restart = true
+depends-on: local-mounts
+depends-on: dbus-ready
+depends-on: seatd
+depends-on: turnstile-ready

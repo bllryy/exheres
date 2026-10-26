@@ -9,6 +9,3 @@ depends-on: hostname
 depends-on: sysctl
 depends-on: mullvad-early-blocking
 depends-on: mullvad
-restart-delay = 2
-restart-limit-interval = 60
-restart-limit-count = 5

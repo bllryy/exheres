@@ -1,6 +1,0 @@
-type = scripted
-command = /etc/dinit.d/helpers/console-zram start
-stop-command = /etc/dinit.d/helpers/console-zram stop
-depends-on = udev-settle
-start-timeout = 120
-stop-timeout = 0
