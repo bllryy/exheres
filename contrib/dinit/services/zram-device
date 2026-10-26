@@ -1,6 +1,8 @@
 # Adapted from chimera-linux/dinit-chimera services/zram-device.
 # Device setup and swap share one service so reset cannot precede swapoff.
 type = scripted
+log-type = buffer
+log-buffer-size = 65536
 command = /etc/dinit.d/helpers/zram.sh start $1
 stop-command = /etc/dinit.d/helpers/zram.sh stop $1
 depends-on = udev-settle
