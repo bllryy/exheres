@@ -5,15 +5,20 @@ require alternatives flag-o-matic
 
 SUMMARY="Service supervision and init system"
 HOMEPAGE="https://github.com/davmac314/dinit"
-DOWNLOADS="${HOMEPAGE}/releases/download/v${PV}/${PNV}.tar.xz"
+ZRAM_COMMIT=2bd6ce8827446c6b1d6b801ac34db1c6c7981f54
+DOWNLOADS="
+    ${HOMEPAGE}/releases/download/v${PV}/${PNV}.tar.xz
+    zram? ( https://github.com/chimera-linux/dinit-chimera/archive/${ZRAM_COMMIT}.tar.gz -> dinit-chimera-${ZRAM_COMMIT}.tar.gz )
+"
 
-LICENCES="Apache-2.0"
+LICENCES="Apache-2.0 BSD-2"
 SLOT="0"
 PLATFORMS="~amd64"
 MYOPTIONS="
     caps [[ description = [ Enable Linux capabilities support ] ]]
     cgroups [[ description = [ Enable Linux control groups support ] ]]
     sysv-utils [[ description = [ Install init symlink and shutdown utilities ] ]]
+    zram [[ description = [ Build and install Chimera's zram device setup helper ] ]]
 "
 
 DEPENDENCIES="
@@ -22,6 +27,11 @@ DEPENDENCIES="
         sys-devel/m4
     build+run:
         caps? ( sys-libs/libcap )
+    run:
+        zram? (
+            sys-apps/kmod
+            sys-apps/util-linux
+        )
 "
 
 DEFAULT_SRC_PREPARE_PATCHES=(
@@ -51,8 +61,26 @@ src_configure() {
         $(option_enable sysv-utils shutdown)
 }
 
+src_compile() {
+    default
+
+    if option zram; then
+        edo $(exhost --target)-c++ $(print-build-flags CPPFLAGS) $(print-build-flags CXXFLAGS) \
+            -std=c++17 -include cmath -include cctype -include cstdlib -include clocale \
+            "${WORKBASE}/dinit-chimera-${ZRAM_COMMIT}/early/helpers/zram.cc" \
+            $(print-build-flags LDFLAGS) -o zram
+    fi
+}
+
 src_install() {
     default
+
+    if option zram; then
+        exeinto /usr/$(exhost --target)/libexec/dinit-chimera
+        doexe zram
+        insinto /usr/share/doc/${PNVR}
+        doins "${WORKBASE}/dinit-chimera-${ZRAM_COMMIT}/early/helpers/zram.cc"
+    fi
 
     if option sysv-utils; then
         local tool host=$(exhost --target) alternatives=( init ${PN} 5 )
