@@ -27,7 +27,6 @@ SUMMARY="A device manager for the Linux kernel; fork of systemd-udev"
 SLOT="0"
 LICENCES="GPL-2"
 
-# gperf generates keyboard-keys-from-name.h; no runtime invocation.
 DEPENDENCIES="
     build:
         dev-util/gperf
@@ -54,9 +53,6 @@ DEFAULT_SRC_PREPARE_PATCHES=(
 DEFAULT_SRC_CONFIGURE_PARAMS=(
     --enable-blkid
     --enable-hwdb
-    # eudev's gudev implementation is disabled, and will be removed
-    # in favor of gnome-desktop/libgudev in later versions.
-    # https://bugs.gentoo.org/show_bug.cgi?id=552036#c2
     --enable-introspection=no
     --enable-manpages
     --disable-gudev
@@ -72,7 +68,6 @@ eudev_pkg_setup() {
 }
 
 eudev_src_unpack() {
-    # Note(alip): We need default_src_unpack for openrc init scripts.
     ever is_scm && scm_src_unpack
     default_src_unpack
 }
@@ -80,12 +75,10 @@ eudev_src_unpack() {
 eudev_src_install() {
     default
 
-    # Keep the udev rules, hwdb, etc.
     keepdir /usr/$(exhost --target)/lib/udev/devices
     keepdir /etc/udev/hwdb.d
     keepdir /etc/udev/rules.d
 
-    # Add rules to the CONFIG_PROTECT mask
     hereenvd 20udev <<EOF
 CONFIG_PROTECT_MASK="${UDEVRULESDIR}"
 EOF
@@ -98,17 +91,11 @@ eudev_pkg_postinst() {
     default
 
     if exhost --is-native -q && [[ ${ROOT} == / ]]; then
-        # Note(alip): The chroot test will not work under syd-3,
-        # due to procfs hardening. To workaround this, we create
-        # a script and make the check outside the sandbox.
-        # Note(alip): This method should work for syd-{1,3} and
-        # we do not support syd-0 any longer.
         script="${TEMP}/restart.bash"
         signal="${TEMP}/restart.done"
 
         cat >"${script}" <<EOF
 #!/bin/bash -x
-# Restart the udev daemon if we are native, and running in the root it's installed to
 if [[ -r /proc/1/root && /proc/1/root -ef /proc/self/root/ ]]; then
     pkill udevd
     sleep 1
@@ -120,12 +107,7 @@ touch "${signal}"
 EOF
         edo chmod +x "${script}"
 
-        # Two things to note:
-        # 1. esandbox exec executes process in the background.
-        # 2. esandbox exec executes process with CWD set to /.
-        # TODO: Document these in Exheres for Smarties.
         esandbox exec "${script}"
-        # Let's wait for a minute for the restart to complete.
         for _ in {1..60}; do
             test -e "${signal}" && break
             sleep 1
