@@ -52,7 +52,6 @@ MESON_SRC_CONFIGURE_OPTION_SWITCHES=(
 src_prepare() {
     meson_src_prepare
 
-    # docbook2man does not support the encoding option.
     edo sed -e "/sgml2man, /s/'--encoding=UTF-8', //" \
         -i doc/{,ja/,ko/}meson.build
 }
