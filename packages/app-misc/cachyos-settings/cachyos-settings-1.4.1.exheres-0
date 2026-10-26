@@ -48,7 +48,6 @@ src_install() {
 
     exeinto /usr/$(exhost --target)/bin
     doexe usr/bin/{dlss-swapper,dlss-swapper-dll,pci-latency,zink-run,kerver}
-    # game-performance invokes systemd-inhibit; do not install a broken launcher.
     if option systemd; then
         doexe usr/bin/game-performance
     fi
