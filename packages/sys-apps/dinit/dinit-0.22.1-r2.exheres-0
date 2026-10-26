@@ -24,6 +24,10 @@ DEPENDENCIES="
         caps? ( sys-libs/libcap )
 "
 
+DEFAULT_SRC_PREPARE_PATCHES=(
+    "${FILES}"/${PN}-0.22.1-soft-reboot-signal-mask.patch
+)
+
 src_configure() {
     export CXX_FOR_BUILD="$(exhost --build)-c++"
     export CXXFLAGS_FOR_BUILD="-std=c++11 $(print-build-flags CXXFLAGS)"

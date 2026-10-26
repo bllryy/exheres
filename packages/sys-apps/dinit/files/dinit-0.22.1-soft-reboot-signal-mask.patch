@@ -1,0 +1,29 @@
+Restore the startup signal mask before soft-reboot exec. Otherwise the new
+supervisor saves PID1's blocked mask and passes it to every service it starts.
+If exec fails, restore the supervisor mask before returning to the event loop.
+
+--- a/src/dinit.cc
++++ b/src/dinit.cc
+@@ -902,6 +902,21 @@
+     // Re-exec the dinit process.
++    // Inherit our startup mask, not the mask used by our event loop.
++    sigset_t supervisor_signal_mask;
++    if (sigprocmask(SIG_SETMASK, &orig_signal_mask, &supervisor_signal_mask) < 0) {
++        log(loglevel_t::ERROR, "Could not restore signal mask for soft reboot: ",
++                strerror(errno));
++        return;
++    }
++
+     execv(dinit_exec, argv);
+-    log(loglevel_t::ERROR, error_exec_dinit, strerror(errno));
++
++    // Exec failed. Preserve its error while restoring our event-loop mask.
++    int exec_errno = errno;
++    if (sigprocmask(SIG_SETMASK, &supervisor_signal_mask, nullptr) < 0) {
++        log(loglevel_t::ERROR, "Could not restore supervisor signal mask: ",
++                strerror(errno));
++    }
++    log(loglevel_t::ERROR, error_exec_dinit, strerror(exec_errno));
+ }
+
+ // Callback for control socket
