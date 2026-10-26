@@ -1,0 +1,38 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require flag-o-matic
+
+SUMMARY="Chimera Linux's zram device setup helper for dinit"
+HOMEPAGE="https://github.com/chimera-linux/dinit-chimera"
+UPSTREAM_COMMIT=2bd6ce8827446c6b1d6b801ac34db1c6c7981f54
+DOWNLOADS="https://github.com/chimera-linux/dinit-chimera/archive/${UPSTREAM_COMMIT}.tar.gz -> dinit-chimera-${UPSTREAM_COMMIT}.tar.gz"
+WORK="${WORKBASE}/dinit-chimera-${UPSTREAM_COMMIT}"
+
+LICENCES="BSD-2"
+SLOT="0"
+PLATFORMS="~amd64"
+MYOPTIONS=""
+
+DEPENDENCIES="
+    run:
+        sys-apps/kmod
+        sys-apps/util-linux
+"
+
+src_configure() { :; }
+
+src_compile() {
+    edo ${CXX} ${CPPFLAGS} ${CXXFLAGS} -std=c++17 \
+        -include cmath -include cctype -include cstdlib -include clocale \
+        early/helpers/zram.cc ${LDFLAGS} -o zram
+}
+
+src_install() {
+    exeinto /usr/$(exhost --target)/libexec/dinit-chimera
+    doexe zram
+    # Helper has its own BSD-2 licence, separate from other upstream files.
+    # Ship the complete source header, including binary redistribution notice.
+    insinto /usr/share/doc/${PNVR}
+    doins early/helpers/zram.cc
+}
