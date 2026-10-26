@@ -1,6 +1,10 @@
 #!/bin/sh
-# Verify initramfs handoff; mount only missing devpts/shm children.
+# Validate inherited mounts and complete the writable-root handoff.
 set -eu
+# Keep boot failures visible even when the service log is buffered.
+if [ -c /dev/console ]; then
+    exec 2>/dev/console
+fi
 PATH=/usr/x86_64-pc-linux-gnu/bin:/usr/bin:/bin
 export PATH
 fail() { printf '%s\n' "console-preflight: $*" >&2; exit 1; }
@@ -12,8 +16,16 @@ for entry in '/proc proc' '/sys sysfs' '/dev devtmpfs' '/run tmpfs'; do
 done
 [ -S /run/dinitctl ] || fail '/run/dinitctl missing; verify PID1 socket setup'
 [ "$(findmnt -rn -M / -o FSTYPE)" = xfs ] || fail 'only inherited XFS root supported'
-options=$(findmnt -rn -M / -o OPTIONS) || fail 'cannot inspect root'
-case ,$options, in *,rw,*) ;; *) fail 'root read-only; offline check/remount policy unresolved' ;; esac
+options=$(findmnt -rn -M / -o VFS-OPTIONS) || fail 'cannot inspect root'
+case ,$options, in
+    *,rw,*) ;;
+    *,ro,*)
+        mount -o remount,rw / || fail 'cannot remount XFS root writable; inspect filesystem errors'
+        options=$(findmnt -rn -M / -o VFS-OPTIONS) || fail 'cannot verify root after remount'
+        case ,$options, in *,rw,*) ;; *) fail 'XFS root remains read-only' ;; esac
+        ;;
+    *) fail "root has unexpected mount options: $options" ;;
+esac
 for entry in '/dev/pts devpts' '/dev/shm tmpfs'; do
     set -- $entry
     [ ! -L "$1" ] || fail "$1 must not be a symlink"
@@ -35,4 +47,4 @@ for entry in '/dev/pts devpts' '/dev/shm tmpfs'; do
     case ,$options, in *,rw,*) ;; *) fail "$1 is not writable" ;; esac
 done
 [ -c /dev/console ] && [ -c /dev/tty1 ] || fail 'console devices unavailable'
-# No mount -a, swap activation, root fsck, or shutdown side effects here.
+# No mount -a, swap activation, filesystem repair, or shutdown actions.
