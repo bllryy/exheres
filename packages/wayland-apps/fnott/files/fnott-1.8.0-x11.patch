@@ -1,0 +1,523 @@
+--- a/meson.build
++++ b/meson.build
+@@ -54,6 +54,12 @@
+ 
+ math = cc.find_library('m', required : false)
+ 
++x11 = dependency('x11', required: get_option('x11'))
++xrandr = dependency('xrandr', required: get_option('x11'))
++if x11.found() and xrandr.found()
++  add_project_arguments('-DFNOTT_ENABLE_X11', language: 'c')
++endif
++
+ threads = dependency('threads')
+ libepoll = dependency('epoll-shim', required: false)
+ pixman = dependency('pixman-1')
+@@ -67,7 +73,7 @@
+ system_nanosvgrast = cc.find_library('nanosvgrast', required: get_option('system-nanosvg'))
+ 
+ tllist = dependency('tllist', version: '>=1.0.1', fallback: 'tllist')
+-fcft = dependency('fcft', version: ['>=3.0.0', '<4.0.0'], fallback: 'fcft')
++fcft = dependency('fcft', version: ['>=3.2.0', '<4.0.0'], fallback: 'fcft')
+ 
+ wayland_protocols_datadir = wayland_protocols.get_variable('pkgdatadir')
+ 
+@@ -145,9 +151,10 @@
+   'tokenize.c', 'tokenize.h',
+   'uri.c', 'uri.h',
+   'wayland.c', 'wayland.h',
++  'x11.c', 'x11.h',
+   'xdg.c', 'xdg.h',
+   wl_proto_src + wl_proto_headers, version,
+-  dependencies: [threads, libepoll, pixman, png, wayland_client, wayland_cursor, dbus, fontconfig,
++  dependencies: [x11, xrandr, threads, libepoll, pixman, png, wayland_client, wayland_cursor, dbus, fontconfig,
+                 tllist, fcft, nanosvg],
+   install: true)
+ 
+--- a/meson_options.txt
++++ b/meson_options.txt
+@@ -1,3 +1,5 @@
++option('x11', type: 'feature', value: 'disabled',
++       description: 'Build native X11 backend')
+ option('docs', type: 'feature',
+        description: 'Build and install documentation (man pages, example fnott.ini, readme, license etc).')
+ option('system-nanosvg', type: 'feature', value: 'disabled',
+--- a/notification.c
++++ b/notification.c
+@@ -29,6 +29,7 @@
+ #include "icon.h"
+ #include "spawn.h"
+ #include "wayland.h"
++#include "x11.h"
+ 
+ #define max(x, y) ((x) > (y) ? (x) : (y))
+ #define min(x, y) ((x) < (y) ? (x) : (y))
+@@ -69,6 +70,7 @@
+ struct notif {
+     struct notif_mgr *mgr;
+ 
++    Window xwindow;
+     struct wl_surface *surface;
+     struct zwlr_layer_surface_v1 *layer_surface;
+     struct wp_fractional_scale_v1 *fractional_scale;
+@@ -296,6 +298,11 @@
+ {
+     struct wayland *wayl = notif->mgr->wayl;
+ 
++    if (wayl_x11(wayl) != NULL) {
++        notif->xwindow = x11_show(wayl_x11(wayl), notif->xwindow, buf, notif->y);
++        buf->busy = false;
++        return;
++    }
+     assert(notif->scale >= 1);
+     assert(buf->busy);
+ 
+@@ -507,6 +514,10 @@
+ static void
+ notif_destroy_surfaces(struct notif *notif)
+ {
++    if (notif->xwindow != None) {
++        x11_hide(wayl_x11(notif->mgr->wayl), notif->xwindow);
++        notif->xwindow = None;
++    }
+     if (notif->frame_callback != NULL)
+         wl_callback_destroy(notif->frame_callback);
+ 
+@@ -1954,7 +1965,10 @@
+     float scale;
+ 
+     /* Resize and position */
+-    if (notif->surface == NULL) {
++    if (wayl_x11(wayl) != NULL) {
++        notif->scale = scale = 1;
++        notif->is_configured = true;
++    } else if (notif->surface == NULL) {
+         if (!notif_instantiate_surface(notif, &width, &height))
+             return 0;
+         scale = notif->scale;
+@@ -1970,6 +1984,7 @@
+     LOG_DBG("show: y = %d, width = %d, height = %d (scale = %.2f)",
+             y, width, height, scale);
+ 
++    if (wayl_x11(wayl) == NULL)
+     zwlr_layer_surface_v1_set_margin(
+         notif->layer_surface,
+         (top_anchored
+@@ -2150,6 +2165,7 @@
+             });
+     }
+ 
++    notif->y = y;
+     if (!notif->is_configured || notif->frame_callback != NULL) {
+         if (notif->pending != NULL)
+             notif->pending->busy = false;
+@@ -2856,3 +2872,22 @@
+     notif->deferred_expiral = EXPIRE_IMMEDIATELY;
+     return;
+ }
++
++void
++notif_mgr_x11_event(struct notif_mgr *mgr, Window window, unsigned int button)
++{
++    tll_foreach(mgr->notifs, it) {
++        struct notif *notif = it->item;
++        if (notif->xwindow != window)
++            continue;
++        if (button == 0)
++            notif_mgr_refresh(mgr);
++        else if (button == 1 || button == 3) {
++            uint32_t id = notif_id(notif);
++            if (button == 1)
++                notif_signal_action(notif, "default");
++            notif_mgr_dismiss_id(mgr, id);
++        }
++        return;
++    }
++}
+--- a/shm.c
++++ b/shm.c
+@@ -122,21 +122,23 @@
+     }
+ #endif
+ 
+-    pool = wl_shm_create_pool(shm, pool_fd, size);
+-    if (pool == NULL) {
+-        LOG_ERR("failed to create SHM pool");
+-        goto err;
+-    }
++    if (shm != NULL) {
++        pool = wl_shm_create_pool(shm, pool_fd, size);
++        if (pool == NULL) {
++            LOG_ERR("failed to create SHM pool");
++            goto err;
++        }
++
++        buf = wl_shm_pool_create_buffer(
++            pool, 0, width, height, stride, WL_SHM_FORMAT_ARGB8888);
++        if (buf == NULL) {
++            LOG_ERR("failed to create SHM buffer");
++            goto err;
++        }
+ 
+-    buf = wl_shm_pool_create_buffer(
+-        pool, 0, width, height, stride, WL_SHM_FORMAT_ARGB8888);
+-    if (buf == NULL) {
+-        LOG_ERR("failed to create SHM buffer");
+-        goto err;
++        /* We use the entire pool for our single buffer */
++        wl_shm_pool_destroy(pool); pool = NULL;
+     }
+-
+-    /* We use the entire pool for our single buffer */
+-    wl_shm_pool_destroy(pool); pool = NULL;
+     close(pool_fd); pool_fd = -1;
+ 
+     /* One pixman image for each worker thread (do we really need multiple?) */
+@@ -159,7 +161,8 @@
+         );
+ 
+     struct buffer *ret = &tll_back(buffers);
+-    wl_buffer_add_listener(ret->wl_buf, &buffer_listener, ret);
++    if (ret->wl_buf != NULL)
++        wl_buffer_add_listener(ret->wl_buf, &buffer_listener, ret);
+     return ret;
+ 
+ err:
+@@ -185,7 +188,8 @@
+ 
+         if (buf->pix != NULL)
+             pixman_image_unref(buf->pix);
+-        wl_buffer_destroy(buf->wl_buf);
++        if (buf->wl_buf != NULL)
++            wl_buffer_destroy(buf->wl_buf);
+         munmap(buf->mmapped, buf->size);
+ 
+         tll_remove(buffers, it);
+--- a/wayland.c
++++ b/wayland.c
+@@ -1,4 +1,5 @@
+ #include "wayland.h"
++#include "x11.h"
+ 
+ #include <assert.h>
+ #include <errno.h>
+@@ -69,6 +70,7 @@
+ };
+ 
+ struct wayland {
++    struct x11 *x11;
+     const struct config *conf;
+     struct fdm *fdm;
+     struct org_kde_kwin_idle *kde_idle_manager;
+@@ -1041,6 +1043,25 @@
+     wayl->conf = conf;
+     wayl->notif_mgr = notif_mgr;
+ 
++    const char *backend = getenv("FNOTT_BACKEND");
++    if (backend != NULL && strcmp(backend, "x11") != 0 &&
++        strcmp(backend, "wayland") != 0) {
++        LOG_ERR("FNOTT_BACKEND must be x11 or wayland");
++        goto err;
++    }
++    const char *session = getenv("XDG_SESSION_TYPE");
++    if ((backend != NULL && strcmp(backend, "x11") == 0) ||
++        (backend == NULL && getenv("DISPLAY") != NULL &&
++         ((session != NULL && strcmp(session, "x11") == 0) ||
++          getenv("WAYLAND_DISPLAY") == NULL))) {
++        wayl->x11 = x11_init(conf, fdm, notif_mgr);
++        if (wayl->x11 == NULL) {
++            LOG_ERR("failed to connect to X11");
++            goto err;
++        }
++        LOG_WARN("X11: idle detection, activation tokens, transparency unavailable");
++        return wayl;
++    }
+     wayl->display = wl_display_connect(NULL);
+     if (wayl->display == NULL) {
+         LOG_ERR("failed to connect to wayland; no compositor running?");
+@@ -1155,6 +1176,9 @@
+         wl_shm_destroy(wayl->shm);
+     if (wayl->compositor != NULL)
+         wl_compositor_destroy(wayl->compositor);
++    if (wayl->x11 != NULL)
++        x11_destroy(wayl->x11);
++
+     if (wayl->registry != NULL)
+         wl_registry_destroy(wayl->registry);
+     if (wayl->display != NULL) {
+@@ -1168,6 +1192,8 @@
+ bool
+ wayl_is_idle_for_urgency(const struct wayland *wayl, const enum urgency urgency)
+ {
++    if (wayl->x11 != NULL)
++        return false;
+     bool idle = true;
+     assert(urgency >= 0 && urgency < 3);
+     tll_foreach(wayl->seats, it) {
+@@ -1302,6 +1328,10 @@
+ void
+ wayl_flush(struct wayland *wayl)
+ {
++    if (wayl->x11 != NULL) {
++        x11_flush(wayl->x11);
++        return;
++    }
+     while (true) {
+         int r = wl_display_flush(wayl->display);
+         if (r >= 0) {
+@@ -1356,6 +1386,10 @@
+ void
+ wayl_roundtrip(struct wayland *wayl)
+ {
++    if (wayl->x11 != NULL) {
++        x11_flush(wayl->x11);
++        return;
++    }
+     wl_display_cancel_read(wayl->display);
+     if (wl_display_roundtrip(wayl->display) < 0) {
+         LOG_ERRNO("failed to roundtrip Wayland display");
+@@ -1372,3 +1406,9 @@
+     }
+     wl_display_flush(wayl->display);
+ }
++
++struct x11 *
++wayl_x11(const struct wayland *wayl)
++{
++    return wayl->x11;
++}
+--- a/wayland.h
++++ b/wayland.h
+@@ -99,3 +99,6 @@
+ int wayl_poll_fd(const struct wayland *wayl);
+ void wayl_flush(struct wayland *wayl);
+ void wayl_roundtrip(struct wayland *wayl);
++
++struct x11;
++struct x11 *wayl_x11(const struct wayland *wayl);
+--- /dev/null
++++ b/x11.c
+@@ -0,0 +1,202 @@
++#include "x11.h"
++#ifdef FNOTT_ENABLE_X11
++#include <X11/Xutil.h>
++#include <X11/Xatom.h>
++#include <X11/extensions/Xrandr.h>
++#include <string.h>
++
++#define LOG_MODULE "x11"
++#define LOG_ENABLE_DBG 0
++#include "log.h"
++#include <stdlib.h>
++#include <sys/epoll.h>
++
++struct x11 {
++    Display *display;
++    struct fdm *fdm;
++    struct notif_mgr *mgr;
++    const struct config *conf;
++    bool output_warning;
++};
++
++static bool
++on_event(struct fdm *fdm, int fd, int events, void *data)
++{
++    struct x11 *x = data;
++    if (events & EPOLLHUP)
++        return false;
++    while (XPending(x->display)) {
++        XEvent event;
++        XNextEvent(x->display, &event);
++        if (event.type == Expose && event.xexpose.count == 0)
++            notif_mgr_x11_event(x->mgr, event.xany.window, 0);
++        else if (event.type == ButtonPress)
++            notif_mgr_x11_event(x->mgr, event.xany.window, event.xbutton.button);
++    }
++    return true;
++}
++
++struct x11 *
++x11_init(const struct config *conf, struct fdm *fdm, struct notif_mgr *mgr)
++{
++    struct x11 *x = calloc(1, sizeof(*x));
++    if (x == NULL)
++        return NULL;
++    x->display = XOpenDisplay(NULL);
++    if (x->display == NULL) {
++        free(x);
++        return NULL;
++    }
++    /* The shared renderer produces native ARGB32; core XPutImage on a
++     * 24-bit TrueColor screen consumes its RGB channels without conversion. */
++    int screen = DefaultScreen(x->display);
++    Visual *visual = DefaultVisual(x->display, screen);
++    if (DefaultDepth(x->display, screen) != 24 || visual->class != TrueColor ||
++        visual->red_mask != 0xff0000 || visual->green_mask != 0xff00 ||
++        visual->blue_mask != 0xff) {
++        XCloseDisplay(x->display);
++        free(x);
++        return NULL;
++    }
++    x->conf = conf;
++    x->fdm = fdm;
++    x->mgr = mgr;
++    if (!fdm_add(fdm, ConnectionNumber(x->display), EPOLLIN, on_event, x)) {
++        XCloseDisplay(x->display);
++        free(x);
++        return NULL;
++    }
++    return x;
++}
++
++void
++x11_flush(struct x11 *x)
++{
++    XFlush(x->display);
++}
++
++void
++x11_destroy(struct x11 *x)
++{
++    fdm_del_no_close(x->fdm, ConnectionNumber(x->display));
++    XCloseDisplay(x->display);
++    free(x);
++}
++
++void
++x11_hide(struct x11 *x, Window window)
++{
++    XDestroyWindow(x->display, window);
++}
++
++Window
++x11_show(struct x11 *x, Window window, struct buffer *buf, int y)
++{
++    Display *d = x->display;
++    int screen = DefaultScreen(d);
++    const struct config *c = x->conf;
++    int ox = 0, oy = 0;
++    int width = DisplayWidth(d, screen), height = DisplayHeight(d, screen);
++    bool found = false, fallback = false;
++    int event_base, error_base;
++    Window root = RootWindow(d, screen);
++    XRRScreenResources *resources = XRRQueryExtension(d, &event_base, &error_base)
++        ? XRRGetScreenResourcesCurrent(d, root) : NULL;
++    if (resources != NULL) {
++        RROutput primary = XRRGetOutputPrimary(d, root);
++        for (int i = 0; i < resources->noutput; i++) {
++            RROutput id = resources->outputs[i];
++            XRROutputInfo *output = XRRGetOutputInfo(d, resources, id);
++            if (output == NULL)
++                continue;
++            bool matches = c->output != NULL &&
++                strlen(c->output) == (size_t)output->nameLen &&
++                memcmp(c->output, output->name, output->nameLen) == 0;
++            if (output->connection == RR_Connected && output->crtc != None) {
++                XRRCrtcInfo *crtc = XRRGetCrtcInfo(d, resources, output->crtc);
++                if (crtc != NULL) {
++                    if (crtc->width > 0 && crtc->height > 0 &&
++                        (matches || (!found && (!fallback || id == primary)))) {
++                        ox = crtc->x;
++                        oy = crtc->y;
++                        width = crtc->width;
++                        height = crtc->height;
++                        found = matches;
++                        fallback = true;
++                    }
++                    XRRFreeCrtcInfo(crtc);
++                }
++            }
++            XRRFreeOutputInfo(output);
++        }
++        XRRFreeScreenResources(resources);
++    }
++    if (c->output != NULL && !found) {
++        if (!x->output_warning)
++            LOG_WARN("output '%s' unavailable; using primary/default output", c->output);
++        x->output_warning = true;
++    } else
++        x->output_warning = false;
++
++    int px = c->margins.horizontal;
++    int py = y;
++    switch (c->anchor) {
++    case ANCHOR_TOP_RIGHT: case ANCHOR_BOTTOM_RIGHT:
++        px = width - buf->width - px;
++        break;
++    case ANCHOR_CENTER:
++        px = (width - buf->width) / 2;
++        break;
++    default: break;
++    }
++    if (c->anchor == ANCHOR_BOTTOM_LEFT ||
++        c->anchor == ANCHOR_BOTTOM_RIGHT)
++        py = height - buf->height - py;
++    else if (c->anchor == ANCHOR_CENTER)
++        py = (height - buf->height) / 2 + y;
++    px += ox;
++    py += oy;
++    bool created = window == None;
++    if (created) {
++        XSetWindowAttributes attrs = {
++            .override_redirect = True,
++            .event_mask = ExposureMask | ButtonPressMask,
++        };
++        window = XCreateWindow(d, RootWindow(d, screen), px, py,
++            buf->width, buf->height, 0, CopyFromParent, InputOutput,
++            CopyFromParent, CWOverrideRedirect | CWEventMask, &attrs);
++        XStoreName(d, window, "fnott");
++        Atom type = XInternAtom(d, "_NET_WM_WINDOW_TYPE_NOTIFICATION", False);
++        XChangeProperty(d, window, XInternAtom(d, "_NET_WM_WINDOW_TYPE", False),
++                        XA_ATOM, 32, PropModeReplace, (unsigned char *)&type, 1);
++    }
++    XMoveResizeWindow(d, window, px, py, buf->width, buf->height);
++    if (created)
++        XMapRaised(d, window);
++    XImage *image = XCreateImage(d, DefaultVisual(d, screen),
++        DefaultDepth(d, screen), ZPixmap, 0, buf->mmapped,
++        buf->width, buf->height, 32, buf->stride);
++    if (image != NULL) {
++        GC gc = XCreateGC(d, window, 0, NULL);
++        XPutImage(d, window, gc, image, 0, 0, 0, 0, buf->width, buf->height);
++        XFreeGC(d, gc);
++        image->data = NULL;
++        XDestroyImage(image);
++    }
++    XFlush(d);
++    return window;
++}
++#else
++struct x11 *
++x11_init(const struct config *conf, struct fdm *fdm, struct notif_mgr *mgr)
++{
++    return NULL;
++}
++void x11_destroy(struct x11 *x) {}
++void x11_flush(struct x11 *x) {}
++Window x11_show(struct x11 *x, Window window, struct buffer *buf, int offset)
++{
++    return 0;
++}
++void x11_hide(struct x11 *x, Window window) {}
++#endif
+--- /dev/null
++++ b/x11.h
+@@ -0,0 +1,18 @@
++#pragma once
++#ifdef FNOTT_ENABLE_X11
++#include <X11/Xlib.h>
++#else
++typedef unsigned long Window;
++#define None 0L
++#endif
++#include "config.h"
++#include "fdm.h"
++#include "shm.h"
++struct notif_mgr;
++struct x11;
++struct x11 *x11_init(const struct config *, struct fdm *, struct notif_mgr *);
++void x11_destroy(struct x11 *);
++void x11_flush(struct x11 *);
++Window x11_show(struct x11 *, Window, struct buffer *, int);
++void x11_hide(struct x11 *, Window);
++void notif_mgr_x11_event(struct notif_mgr *, Window, unsigned int);
