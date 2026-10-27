@@ -96,7 +96,11 @@ MESON_SRC_CONFIGURE_PARAMS=(
     -Dqemu_group=qemu
     -Dfirewall_backend_priority=nftables
 )
-MESON_SRC_CONFIGURE_OPTIONS=(
+DEFAULT_SRC_PREPARE_PATCHES=(
+    "${FILES}/${PNV}-nwfilter-firewall-backends.patch"
+)
+
+MESON_SRC_CONFIGURE_OPTION_FEATURES=(
     'network driver_network'
     polkit
     'qemu driver_qemu'
