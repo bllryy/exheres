@@ -61,7 +61,8 @@ DEPENDENCIES="
 "
 
 MESON_SRC_CONFIGURE_PARAMS=(
-    -Dsystem=true
+    # system=true overrides the target libdir with /usr/lib64.
+    -Dsystem=false
     # Also installs API XML required to build libvirt-python.
     -Ddocs=enabled
     -Drunstatedir=/run
@@ -112,7 +113,17 @@ src_configure() {
 
 src_install() {
     meson_src_install
-    keepdir /var/log/libvirt
+    # /run is transient; drivers create their runtime directories themselves.
+    edo find "${IMAGE}/run" -depth -type d -empty -delete
+    # No storage-file modules are enabled, so this module directory is unused.
+    edo find "${IMAGE}/usr/$(exhost --target)/lib/libvirt" -depth -type d -empty -delete
+
+    # Preserve upstream's empty state, cache, log and configuration directories,
+    # including driver-specific directories selected by package options.
+    local directory
+    while IFS= read -r -d '' directory ; do
+        keepdir "${directory#"${IMAGE}"}"
+    done < <(find "${IMAGE}" -type d -empty -print0)
 
     # Exherbo account packages own account creation, including on non-systemd hosts.
     if option qemu; then
