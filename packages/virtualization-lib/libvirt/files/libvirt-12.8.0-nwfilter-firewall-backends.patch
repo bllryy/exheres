@@ -1,9 +1,9 @@
-nwfilter also needs firewall backend defaults when the network driver is disabled.
-Initialize shared settings independently of the network driver.
+nwfilter also needs firewall backend defaults and FIREWALL_BACKENDS when the
+network driver is disabled. Initialize both shared settings independently.
 
 --- a/meson.build
 +++ b/meson.build
-@@ -1648,25 +1648,25 @@
+@@ -1648,33 +1648,33 @@
    endif
  endif
  
@@ -24,6 +24,14 @@ Initialize shared settings independently of the network driver.
 +    endif
 +endif
 +
++backends = []
++foreach backend: firewall_backend_priority
++    backend = 'VIR_FIREWALL_BACKEND_' + backend.to_upper()
++    backends += backend
++endforeach
++
++conf.set('FIREWALL_BACKENDS', ', '.join(backends))
++
  if not get_option('driver_network').disabled() and conf.has('WITH_LIBVIRTD')
    conf.set('WITH_NETWORK', 1)
 -
@@ -43,6 +51,14 @@ Initialize shared settings independently of the network driver.
 -          error('firewall backend priority only supported on linux hosts')
 -      endif
 -  endif
- 
-   backends = []
-   foreach backend: firewall_backend_priority
+-
+-  backends = []
+-  foreach backend: firewall_backend_priority
+-      backend = 'VIR_FIREWALL_BACKEND_' + backend.to_upper()
+-      backends += backend
+-  endforeach
+-
+-  conf.set('FIREWALL_BACKENDS', ', '.join(backends))
+ elif get_option('driver_network').enabled()
+   error('libvirtd must be enabled to build the network driver')
+ endif
