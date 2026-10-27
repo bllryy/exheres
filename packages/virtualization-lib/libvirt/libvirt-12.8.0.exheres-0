@@ -112,6 +112,7 @@ src_configure() {
 
 src_install() {
     meson_src_install
+    keepdir /var/log/libvirt
 
     # Exherbo account packages own account creation, including on non-systemd hosts.
     if option qemu; then
