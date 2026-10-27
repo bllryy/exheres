@@ -61,7 +61,6 @@ DEPENDENCIES="
 "
 
 MESON_SRC_CONFIGURE_PARAMS=(
-    -Dauto_features=disabled
     -Dsystem=true
     # Also installs API XML required to build libvirt-python.
     -Ddocs=enabled
