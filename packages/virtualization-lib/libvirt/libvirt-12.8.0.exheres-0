@@ -113,6 +113,13 @@ src_configure() {
 
 src_install() {
     meson_src_install
+    # Exherbo account packages own account creation.
+    edo rm "${IMAGE}"/usr/lib/sysusers.d/libvirt.conf
+    if option qemu; then
+        edo rm "${IMAGE}"/usr/lib/sysusers.d/libvirt-qemu.conf
+    fi
+    edo rmdir "${IMAGE}"/usr/lib/sysusers.d "${IMAGE}"/usr/lib
+
     # /run is transient; drivers create their runtime directories themselves.
     edo find "${IMAGE}/run" -depth -type d -empty -delete
     # No storage-file modules are enabled, so this module directory is unused.
@@ -125,8 +132,4 @@ src_install() {
         keepdir "${directory#"${IMAGE}"}"
     done < <(find "${IMAGE}" -type d -empty -print0)
 
-    # Exherbo account packages own account creation, including on non-systemd hosts.
-    if option qemu; then
-        edo rm "${IMAGE}"/usr/lib/sysusers.d/libvirt-qemu.conf
-    fi
 }
