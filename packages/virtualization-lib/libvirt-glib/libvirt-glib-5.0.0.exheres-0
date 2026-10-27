@@ -1,0 +1,49 @@
+# Copyright 2012 Marc-Antoine Perennou <Marc-Antoine@Perennou.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require vala [ vala_dep=true with_opt=true option_name=vapi ]
+require meson
+
+SUMMARY="GLib integration for libvirt"
+DESCRIPTION="
+libvirt-glib - GLib main loop integration & misc helper APIs
+libvirt-gconfig - GObjects for manipulating libvirt XML documents
+libvirt-gobject - GObjects for managing libvirt objects
+"
+HOMEPAGE="https://libvirt.org/"
+DOWNLOADS="${HOMEPAGE}/sources/glib/${PNV}.tar.xz"
+
+LICENCES="LGPL-2.1+"
+SLOT="1.0"
+PLATFORMS="~amd64 ~x86"
+MYOPTIONS="
+    gobject-introspection
+    gtk-doc
+    vapi [[ requires = [ gobject-introspection ] ]]
+"
+
+DEPENDENCIES="
+    build:
+        gtk-doc? ( dev-doc/gtk-doc )
+        gobject-introspection? ( gnome-desktop/gobject-introspection:1[>=1.46.0] )
+    build+run:
+        dev-libs/glib:2[>=2.48.0][gobject-introspection(+)?]
+        dev-libs/libxml2:2.0[>=2.9.1]
+        virtualization-lib/libvirt[>=2.3.0]
+"
+
+MESON_SRC_CONFIGURE_TESTS=(
+    '-Dtests=enabled -Dtests=disabled'
+)
+MESON_SRC_CONFIGURE_OPTION_FEATURES=(
+    "gobject-introspection introspection"
+    "gtk-doc docs"
+    vapi
+)
+
+src_prepare() {
+    meson_src_prepare
+
+    edo sed -e "s/\"nm\"/\"${NM}\"/" \
+            -i build-aux/check-symfile.py
+}
