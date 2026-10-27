@@ -1,0 +1,27 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require py-pep517 [ backend=setuptools blacklist="3.4 3.5 3.6 3.7 3.8" test=pytest work=${PN/-/_}-${PV} ]
+
+SUMMARY="Python bindings for libvirt"
+HOMEPAGE="https://libvirt.org/"
+DOWNLOADS="${HOMEPAGE}sources/python/${PN/-/_}-${PV}.tar.gz"
+
+LICENCES="LGPL-2+"
+SLOT="0"
+PLATFORMS="~amd64 ~x86"
+
+DEPENDENCIES="
+    build:
+        dev-util/pkgconf
+    build+run:
+        virtualization-lib/libvirt[>=0.9.11]
+    test:
+        dev-python/lxml[python_abis:*(-)?]
+"
+
+prepare_one_multibuild() {
+    py-pep517_prepare_one_multibuild
+
+    edo sed -i "s@\"pkg-config\"@\"${PKG_CONFIG}\"@g" setup.py
+}
