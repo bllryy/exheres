@@ -15,7 +15,7 @@ WORK="${WORKBASE}/${PNV}"
 src_unpack() {
     local checksum
     checksum=$(sha256sum "${FETCHEDDIR}/${PNV}.tar.gz") || die "Cannot checksum pnpm archive"
-    [[ ${checksum%% *} == 55b5ed0092bd11176c1669598e231ae52e7cedac59de6efd0d415730f37d0598 ]] ||
+    [[ ${checksum%% *} == 4492070f381f5cc42b977b968d8d72b970ffd17bef2523c229170b2cd4ece44a ]] ||
         die "pnpm archive changed; check version before updating checksum"
     edo mkdir -p "${WORK}"
     edo tar xzf "${FETCHEDDIR}/${PNV}.tar.gz" --no-same-owner -C "${WORK}"
