@@ -88,7 +88,9 @@ src_prepare() {
     edo sed -i \
         -e "s|/usr/lib/libgcc_s.so.1|/usr/${host}/lib/libgcc_s.so.1|" \
         -e "s#    add_binary '/usr/lib/ossl-modules/legacy.so'#    for mod in /usr/${host}/lib/{ossl-modules,openssl-*/lib/ossl-modules}/legacy.so; do [[ ! -f \"\$mod\" ]] || add_binary \"\$mod\"; done#" install/encrypt
+    # Both providers read /etc/udev/rules.d regardless of their libexecdir.
     edo sed -i \
+        -e 's|add_file "$rules" /usr/lib/udev/rules.d/|add_file "$rules" /etc/udev/rules.d/|' \
         -e "s|PATH='/usr/lib/udev/rules.d:/lib/udev/rules.d'|PATH='/usr/${host}/lib/udev/rules.d:/usr/lib/udev/rules.d:/lib/udev/rules.d'|" \
         -e "s|PATH='/usr/lib/udev:/lib/udev'|PATH='/usr/${host}/lib/udev:/usr/lib/udev:/lib/udev'|" \
         -e '/dest="${2:-$binary}"/a\    [[ "$1" == /* || -n "$2" ]] || dest="/usr/bin/${1##*/}"' \
