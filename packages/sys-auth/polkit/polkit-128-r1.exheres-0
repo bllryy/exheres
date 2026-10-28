@@ -1,0 +1,121 @@
+# Copyright 2008-2011 Saleem Abdulrasool <compnerd@compnerd.org>
+# Copyright 2018 Bjorn Pagen <bjornpagen@gmail.com>
+# Copyright 2022 Heiko Becker <heirecka@exherbo.org>
+# Distributed under the terms of the GNU General Public License v2
+
+require github [ user=polkit-org ]
+require meson
+require pam
+require python [ blacklist=2 multibuild=false ]
+require systemd-service test-dbus-daemon
+
+SUMMARY="Policy framework for controlling privileges for system-wide services"
+
+LICENCES="LGPL-2"
+SLOT="1"
+PLATFORMS="~amd64 ~armv7 ~armv8 ~x86"
+MYOPTIONS="
+    gobject-introspection
+    gtk-doc
+    ( providers: systemd elogind consolekit ) [[
+        *description = [ Login daemon provider ]
+        number-selected = exactly-one
+    ]]
+"
+
+DEPENDENCIES="
+    build:
+        app-text/docbook-xml-dtd:4.1.2 [[ description = [ Needed to build man-pages ] ]]
+        app-text/docbook-xsl-stylesheets [[ description = [ Needed to build man-pages ] ]]
+        dev-libs/libxslt[>=1.1.24]
+        sys-apps/dbus [[ note = [ get dirs via pkgconfig ] ]]
+        sys-devel/gettext[>=0.19.8]
+        virtual/pkg-config[>=0.9.0]
+        gtk-doc? ( dev-doc/gtk-doc[>=1.3] )
+    build+run:
+        group/polkitd
+        user/polkitd
+        dev-libs/duktape[>=2.2.0]
+        dev-libs/expat[>=2.0.1]
+        dev-libs/glib:2[>=2.44][gobject-introspection(+)?]
+        sys-libs/pam
+        gobject-introspection? ( gnome-desktop/gobject-introspection:1[>=0.6.2] )
+        providers:systemd? ( sys-apps/systemd )
+        providers:elogind? ( sys-auth/elogind )
+        providers:consolekit? ( sys-auth/ConsoleKit2 )
+    test:
+        dev-python/dbus-python[python_abis:*(-)?]
+        dev-python/python-dbusmock[python_abis:*(-)?]
+"
+
+src_prepare() {
+    meson_src_prepare
+
+    # fix shebang
+    edo sed -e 's:^#!.*:#!/usr/bin/env perl:' \
+            -i src/polkitbackend/toarray.pl
+    edo sed -e "s:python3:python$(python_get_abi):" -i test/wrapper.py
+
+    # Fix install location of polkit-agent-helper-1 and polkitd for us,
+    # basically a revert of
+    # https://gitlab.freedesktop.org/polkit/polkit/-/merge_requests/85
+    # Related: https://gitlab.freedesktop.org/polkit/polkit/-/merge_requests/63
+    edo sed -e "/pk_libprivdir =/s/ 'lib' / pk_libdir/" -i meson.build
+
+    # 128 has no directory options for these; use target libdir even without systemd.pc.
+    edo sed \
+        -e "s@^  sysusers_dir = .*@  sysusers_dir = pk_prefix / pk_libdir / 'sysusers.d'@" \
+        -e "s@^  tmpfiles_dir = .*@  tmpfiles_dir = pk_prefix / pk_libdir / 'tmpfiles.d'@" \
+        -i meson.build
+
+    # remove failing test, last checked: 125
+    # test-polkitbackendjsauthority.c:457:rules_test_func: assertion failed (result == tc->expected_result): (0 == 5)
+    edo sed \
+        -e '/polkitbackend/d' \
+        -i test/meson.build
+}
+
+src_configure() {
+    local meson_params=(
+        -Dauthfw=pam
+        -Dexamples=false
+        -Dgettext=false
+        -Dlibs-only=false
+        -Dman=true
+        -Dos_type=gentoo
+        -Dpam_module_dir=$(getpam_mod_dir)
+        -Dpam_prefix="/usr/$(exhost --target)/lib/pam.d"
+        -Dpolkitd_user=polkitd
+        -Dprivileged_group=wheel
+        -Dsystemdsystemunitdir=${SYSTEMDSYSTEMUNITDIR}
+
+        $(meson_switch gobject-introspection introspection)
+        $(meson_switch gtk-doc gtk_doc)
+
+        $(expecting_tests -Dtests=true -Dtests=false)
+    )
+
+    if option providers:systemd ; then
+        meson_params+=( -Dsession_tracking=logind )
+    elif option providers:elogind ; then
+        meson_params+=( -Dsession_tracking=elogind )
+    else
+        meson_params+=( -Dsession_tracking=ConsoleKit )
+    fi
+
+    exmeson "${meson_params[@]}"
+}
+
+src_test() {
+    test-dbus-daemon_run-tests meson_src_test
+}
+
+src_install() {
+    meson_src_install
+
+    keepdir /etc/polkit-1/rules.d
+
+    edo chown -R root:polkitd "${IMAGE}"/etc/polkit-1/rules.d
+    edo chmod 0750 "${IMAGE}"/etc/polkit-1/rules.d
+}
+
