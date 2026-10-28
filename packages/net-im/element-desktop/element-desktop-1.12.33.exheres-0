@@ -40,8 +40,8 @@ src_unpack() {
     edo mkdir -p "${PNPM_HOME}" "${npm_config_store_dir}"
     export PATH="${PNPM_HOME}:${PATH}"
     edo pnpm install --frozen-lockfile --store-dir "${npm_config_store_dir}"
-    edo pnpm --filter element-desktop deploy --prod --legacy --store-dir "${npm_config_store_dir}" "${WORKBASE}/desktop-deploy"
-    edo rm "${WORKBASE}/desktop-deploy/node_modules/.pnpm/node_modules/element-desktop"
+    edo pnpm --filter element-desktop deploy --prod --legacy --config.allowUnusedPatches=true --store-dir "${npm_config_store_dir}" "${WORKBASE}/desktop-deploy"
+    edo rm -f "${WORKBASE}/desktop-deploy/node_modules/.pnpm/node_modules/element-desktop"
 }
 
 src_prepare() {

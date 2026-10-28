@@ -33,9 +33,7 @@ DEPENDENCIES="
 WORK="${WORKBASE}/VeraCrypt-VeraCrypt_${PV}/src"
 
 DEFAULT_SRC_PREPARE_PATCHES=(
-    "${FILES}/${PNV}-fix-release-date.patch"
     "${FILES}/${PNV}-argon2-avx2-avx512f.patch"
-    "${FILES}/${PNV}-fix-nosse2.patch"
 )
 
 src_configure() {
