@@ -1,4 +1,4 @@
 type = process
-command = /etc/dinit.d/helpers/console-xfs-healer
+command = /etc/dinit.d/helpers/xfs-healer
 depends-on = local-mounts
 restart = false

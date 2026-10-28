@@ -1,5 +1,0 @@
-#!/bin/sh
-set -eu
-PATH=/usr/x86_64-pc-linux-gnu/bin:/usr/bin:/bin
-export PATH
-exec /usr/x86_64-pc-linux-gnu/bin/scx_loader

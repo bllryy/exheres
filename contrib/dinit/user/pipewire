@@ -1,10 +1,3 @@
-# Exherbo PipeWire 1.6.10 candidate.
-# Requires user-owned XDG_RUNTIME_DIR and device/session access.
-# Do not run alongside another PipeWire instance or socket activation.
-# Chimera main/pipewire/files/pipewire.user and Artix pipewire-dinit/
-# pipewire.user use distro-patched native notification. Stock Exherbo lacks it:
-# use pipewire-ready instead. No hard dbus dependency for core audio.
-# Default SIGTERM stops foreground daemon after dependents have stopped.
 type = process
 log-type = buffer
 command = /usr/x86_64-pc-linux-gnu/bin/pipewire

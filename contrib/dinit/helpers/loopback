@@ -1,0 +1,5 @@
+#!/usr/bin/python3
+"""Bring up the loopback interface."""
+import os
+
+os.execv('/usr/x86_64-pc-linux-gnu/bin/ip', ['ip', 'link', 'set', 'dev', 'lo', 'up'])

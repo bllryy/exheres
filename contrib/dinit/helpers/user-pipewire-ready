@@ -1,18 +1,22 @@
-#!/bin/sh
-# Probe protocol round-trip, not mere socket existence. Never autospawn daemon.
-# Bound each attempt and total retries; use installed client configuration.
-set -eu
-export PIPEWIRE_REMOTE=pipewire-0
-export PIPEWIRE_CONFIG_DIR=/usr/share/pipewire
-export PIPEWIRE_CONFIG_NAME=client.conf
-attempt=0
-while [ "$attempt" -lt 50 ]; do
-    if /usr/x86_64-pc-linux-gnu/bin/timeout 1 \
-        /usr/x86_64-pc-linux-gnu/bin/pw-cli info 0 >/dev/null 2>&1; then
-        exit 0
-    fi
-    attempt=$((attempt + 1))
-    /usr/x86_64-pc-linux-gnu/bin/sleep 0.1
-done
-printf '%s\n' 'PipeWire protocol readiness timed out' >&2
-exit 1
+#!/usr/bin/python3
+"""Wait for PipeWire to answer a connection probe."""
+import os
+import subprocess
+import sys
+
+os.environ.update(PIPEWIRE_REMOTE='pipewire-0', PIPEWIRE_CONFIG_DIR='/usr/share/pipewire',
+                  PIPEWIRE_CONFIG_NAME='client.conf')
+for attempt in range(50):
+    try:
+        status = subprocess.run([
+            '/usr/x86_64-pc-linux-gnu/bin/timeout', '1',
+            '/usr/x86_64-pc-linux-gnu/bin/pw-cli', 'info', '0',
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode
+    except OSError:
+        status = 1
+    if status == 0:
+        sys.exit(0)
+    result = subprocess.run(['/usr/x86_64-pc-linux-gnu/bin/sleep', '0.1'])
+    if result.returncode:
+        sys.exit(result.returncode if result.returncode > 0 else 128 - result.returncode)
+sys.exit(1)

@@ -1,0 +1,96 @@
+#!/usr/bin/python3
+"""Configure and manage zram swap from zram-generator settings."""
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+
+HELPER = '/usr/x86_64-pc-linux-gnu/libexec/dinit-chimera/zram'
+
+
+def active(device):
+    with Path('/proc/swaps').open() as swaps:
+        return any(re.match(r'^/dev/' + device + r'\s', line) for line in swaps)
+
+
+def run(*args):
+    try:
+        result = subprocess.run(args)
+    except FileNotFoundError:
+        return 127
+    except PermissionError:
+        return 126
+    return result.returncode if result.returncode >= 0 else 128 - result.returncode
+
+
+def main(args):
+    try:
+        return manage(args)
+    except OSError as error:
+        print(f'zram: {error}', file=sys.stderr)
+        return 1
+
+
+def manage(args):
+    os.environ['PATH'] = '/usr/x86_64-pc-linux-gnu/bin:/usr/bin:/bin'
+    if len(args) < 2 or not re.fullmatch(r'zram[0-9]{1,2}', args[1]):
+        print('expected zram device numbered 0 through 99', file=sys.stderr)
+        return 1
+    action, device = args[:2]
+    marker = Path(f'/run/dinit-{device}.owned')
+    if action == 'start':
+        status = run('modprobe', 'zram')
+        if status:
+            return status
+        if active(device):
+            if marker.is_file():
+                return 0
+            print(f'{device} already active under another manager', file=sys.stderr)
+            return 1
+        block = Path(f'/sys/block/{device}')
+        size = block / 'disksize'
+        if os.access(size, os.R_OK):
+            with size.open() as stream:
+                value = stream.readline(64)
+            if not value.endswith('\n'):
+                return 1
+            if value.strip(' \t\n') != '0':
+                if not marker.is_file():
+                    print(f'{device} already configured under another manager', file=sys.stderr)
+                    return 1
+                status = run(HELPER, device, 'stop')
+                if status:
+                    return status
+        marker.write_bytes(b'')
+        status = run(HELPER, device)
+        if status:
+            return status
+        return run('swapon', f'/dev/{device}')
+    if action == 'stop':
+        if not marker.is_file():
+            return 0
+        if active(device):
+            status = run('swapoff', f'/dev/{device}')
+            if status:
+                return status
+        block = Path(f'/sys/block/{device}')
+        if block.is_dir():
+            status = run(HELPER, device, 'stop')
+            if status:
+                return status
+            if block.is_dir():
+                return 1
+        marker.unlink(missing_ok=True)
+        return 0
+    print('expected start or stop', file=sys.stderr)
+    return 1
+
+
+if __name__ == '__main__':
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except OSError as error:
+        print(error, file=sys.stderr)
+        sys.exit(1)

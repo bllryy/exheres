@@ -1,5 +1,5 @@
 type = process
-command = /etc/dinit.d/helpers/console-mullvad
+command = /etc/dinit.d/helpers/mullvad
 options = signal-process-only
 stop-timeout = 15
 restart = true

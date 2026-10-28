@@ -1,9 +1,5 @@
 #!/usr/host/bin/python3
-"""Mullvad supervisor: USR1 restarts with lockdown, TERM/INT stop normally.
-
-Use dinitctl signal USR1 console-mullvad, NOT dinitctl restart, for protected
-restarts. No readiness or connected-tunnel guarantee. Never clears firewall.
-"""
+"""Supervise Mullvad and verify early firewall blocking."""
 import os
 import signal
 import subprocess
@@ -51,7 +47,7 @@ def supervise(command, resource):
                         except ProcessLookupError:
                             pass
                 if deadline is not None and time.monotonic() >= deadline:
-                    print('console-mullvad: signal timeout; killing child; lockdown unconfirmed', file=sys.stderr)
+                    print('mullvad: signal timeout; killing child; lockdown unconfirmed', file=sys.stderr)
                     child.kill()
                     child.wait()
                     return 1
@@ -81,5 +77,5 @@ if __name__ == '__main__':
         else:
             sys.exit(supervise([DAEMON, '-vv', '--disable-stdout-timestamps'], RESOURCE))
     except (OSError, ValueError) as error:
-        print(f'console-mullvad: {error}', file=sys.stderr)
+        print(f'mullvad: {error}', file=sys.stderr)
         sys.exit(1)

@@ -1,0 +1,6 @@
+#!/usr/bin/python3
+"""Start scx_loader after preparing its runtime directory."""
+import os
+
+os.environ['PATH'] = '/usr/x86_64-pc-linux-gnu/bin:/usr/bin:/bin'
+os.execv('/usr/x86_64-pc-linux-gnu/bin/scx_loader', ['scx_loader'])

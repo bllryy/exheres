@@ -1,0 +1,61 @@
+#!/usr/bin/python3
+"""Prepare boot directories and validate filesystem mountpoints."""
+import os
+from pathlib import Path
+import subprocess
+import sys
+
+os.environ['PATH'] = '/usr/x86_64-pc-linux-gnu/bin:/usr/bin:/bin'
+
+
+def run(*args):
+    try:
+        status = subprocess.run(args).returncode
+    except OSError as error:
+        print(error, file=sys.stderr)
+        sys.exit(127 if isinstance(error, FileNotFoundError) else 126)
+    if status:
+        sys.exit(status if status > 0 else 128 - status)
+
+
+def mkdir(path, mode):
+    if not path.is_dir():
+        run('mkdir', '-m', mode, '-p', str(path))
+
+
+def mounted(path):
+    try:
+        return subprocess.run(['mountpoint', '-q', path]).returncode == 0
+    except OSError:
+        return False
+
+
+for path, mode in (('/proc', '0555'), ('/sys', '0555'), ('/dev', '0755'), ('/run', '0755')):
+    mkdir(Path(path), mode)
+for target, kind, options, source in (
+    ('/proc', 'proc', 'nosuid,nodev,noexec', 'proc'),
+    ('/sys', 'sysfs', 'nosuid,nodev,noexec', 'sys'),
+    ('/dev', 'devtmpfs', 'mode=0755,nosuid', 'dev'),
+    ('/run', 'tmpfs', 'mode=0755,nosuid,nodev', 'run'),
+):
+    if not mounted(target):
+        run('mount', '-t', kind, '-o', options, source, target)
+for path, mode in (('/dev/pts', '0755'), ('/dev/shm', '1777')):
+    mkdir(Path(path), mode)
+if not mounted('/dev/pts'):
+    run('mount', '-t', 'devpts', '-o', 'mode=0620,gid=5,nosuid,noexec', 'devpts', '/dev/pts')
+if not mounted('/dev/shm'):
+    run('mount', '-t', 'tmpfs', '-o', 'mode=1777,nosuid,nodev', 'shm', '/dev/shm')
+for path in ('/run/lock', '/run/log', '/run/mount', '/run/udev', '/run/dinit', '/run/user'):
+    mkdir(Path(path), '0755')
+for destination, source in (('/dev/fd', '/proc/self/fd'), ('/dev/stdin', '/proc/self/fd/0'),
+                            ('/dev/stdout', '/proc/self/fd/1'), ('/dev/stderr', '/proc/self/fd/2')):
+    if not Path(destination).exists():
+        run('ln', '-s', source, destination)
+for path in ('/etc/mtab', '/var/run'):
+    if not Path(path).is_symlink():
+        print(f'preflight: {path} must be a symlink', file=sys.stderr)
+        sys.exit(1)
+if Path('/var/lock').is_dir() and not Path('/var/lock').is_symlink():
+    print('preflight: /var/lock must not be a real directory', file=sys.stderr)
+    sys.exit(1)

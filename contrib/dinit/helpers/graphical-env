@@ -1,82 +1,107 @@
-#!/bin/sh
+#!/usr/bin/python3
+"""Manage graphical session environment and activation readiness."""
+import fcntl
+import os
+from pathlib import Path
+import shutil
+import subprocess
+import sys
 
-case "${SWAY_SESSION_MANAGER-}" in
-    dinit) ;;
-    systemd)
-        [ "$#" -eq 1 ] || exit 2
-        case "$1" in
-            import)
-                [ -n "${WAYLAND_DISPLAY-}" ] && [ -n "${SWAYSOCK-}" ] || exit 1
-                exec dbus-update-activation-environment --systemd \
-                    "DISPLAY=${DISPLAY-}" "WAYLAND_DISPLAY=$WAYLAND_DISPLAY" \
-                    "SWAYSOCK=$SWAYSOCK" "XAUTHORITY=${XAUTHORITY-}" \
-                    "XDG_CURRENT_DESKTOP=${XDG_CURRENT_DESKTOP:-sway}" \
-                    "XDG_SESSION_DESKTOP=${XDG_SESSION_DESKTOP:-sway}" XDG_SESSION_TYPE=wayland
-                ;;
-            cleanup)
-                result=0
-                systemctl --user unset-environment DISPLAY WAYLAND_DISPLAY SWAYSOCK \
-                    XAUTHORITY XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE || result=1
-                dbus-update-activation-environment DISPLAY= WAYLAND_DISPLAY= SWAYSOCK= \
-                    XAUTHORITY= XDG_CURRENT_DESKTOP= XDG_SESSION_DESKTOP= XDG_SESSION_TYPE= || result=1
-                exit "$result"
-                ;;
-            *) exit 2 ;;
-        esac
-        ;;
-    *) printf '%s\n' 'graphical-env: SWAY_SESSION_MANAGER must be dinit or systemd' >&2; exit 2 ;;
-esac
+NAMES = 'DISPLAY WAYLAND_DISPLAY SWAYSOCK XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE XAUTHORITY'.split()
 
-[ -n "${SWAY_SESSION_STATE-}" ] && [ -d "$SWAY_SESSION_STATE" ] || exit 2
-exec 9>"$SWAY_SESSION_STATE/lock" || exit 1
-flock -x 9 || exit 1
 
-names='DISPLAY WAYLAND_DISPLAY SWAYSOCK XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE XAUTHORITY'
+def run(*args):
+    try:
+        return subprocess.run(args).returncode == 0
+    except OSError:
+        return False
 
-cleanup() {
-    result=0
-    rm -f "$SWAY_SESSION_STATE/active" || result=1
-    dinitctl --user stop graphical.monitor || result=1
-    dinitctl --user unsetenv $names || result=1
-    dinitctl --user untrigger graphical.target || result=1
-    dinitctl --user stop graphical.target || result=1
-    dbus-update-activation-environment DISPLAY= WAYLAND_DISPLAY= SWAYSOCK= \
-        XDG_CURRENT_DESKTOP= XDG_SESSION_DESKTOP= XDG_SESSION_TYPE= XAUTHORITY= || result=1
-    return "$result"
-}
 
-case "${1-}" in
-    import)
-        [ "$#" -eq 1 ] || exit 2
-        [ -f "$SWAY_SESSION_STATE/active" ] || exit 1
-        if [ -z "${WAYLAND_DISPLAY-}" ] || [ -z "${SWAYSOCK-}" ] ||
-           [ -z "${DBUS_SESSION_BUS_ADDRESS-}" ]; then
-            printf '%s\n' 'graphical-env: import requires running Sway and user D-Bus' >&2
-            exit 1
-        fi
-        command -v dinitctl >/dev/null || exit 1
-        command -v dbus-update-activation-environment >/dev/null || exit 1
-        XDG_CURRENT_DESKTOP=${XDG_CURRENT_DESKTOP:-sway}
-        XDG_SESSION_DESKTOP=${XDG_SESSION_DESKTOP:-sway}
-        XDG_SESSION_TYPE=wayland
-        export XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE
-        set -- "SWAYSOCK=$SWAYSOCK" \
-            "XDG_CURRENT_DESKTOP=$XDG_CURRENT_DESKTOP" \
-            "XDG_SESSION_DESKTOP=$XDG_SESSION_DESKTOP" \
-            "XDG_SESSION_TYPE=$XDG_SESSION_TYPE" "XAUTHORITY=${XAUTHORITY-}"
-        if ! dbus-update-activation-environment "$@" "DISPLAY=${DISPLAY-}" "WAYLAND_DISPLAY=$WAYLAND_DISPLAY" ||
-           ! dinitctl --user setenv "$@" ||
-           ! dinitctl --user setenv "DISPLAY=${DISPLAY-}" "WAYLAND_DISPLAY=$WAYLAND_DISPLAY" ||
-           ! dinitctl --user start graphical.monitor ||
-           ! dinitctl --user trigger graphical.target ||
-           ! dinitctl --user start graphical.target; then
-            cleanup
-            exit 1
-        fi
-        ;;
-    cleanup)
-        [ "$#" -eq 1 ] || exit 2
-        cleanup
-        ;;
-    *) printf '%s\n' 'usage: graphical-env import|cleanup' >&2; exit 2 ;;
-esac
+def cleanup(state):
+    result = 0
+    try:
+        (state / 'active').unlink(missing_ok=True)
+    except OSError:
+        result = 1
+    commands = [
+        ['dinitctl', '--user', 'stop', 'graphical.monitor'],
+        ['dinitctl', '--user', 'unsetenv', *NAMES],
+        ['dinitctl', '--user', 'untrigger', 'graphical.target'],
+        ['dinitctl', '--user', 'stop', 'graphical.target'],
+        ['dbus-update-activation-environment', *[name + '=' for name in NAMES]],
+    ]
+    for command in commands:
+        if not run(*command):
+            result = 1
+    return result
+
+
+def main(args):
+    env = os.environ
+    manager = env.get('SWAY_SESSION_MANAGER')
+    if manager not in ('dinit', 'systemd'):
+        print('graphical-env: SWAY_SESSION_MANAGER must be dinit or systemd', file=sys.stderr)
+        return 2
+    if manager == 'systemd':
+        if len(args) != 1 or args[0] not in ('import', 'cleanup'):
+            return 2
+        names = ['DISPLAY', 'WAYLAND_DISPLAY', 'SWAYSOCK', 'XAUTHORITY',
+                 'XDG_CURRENT_DESKTOP', 'XDG_SESSION_DESKTOP', 'XDG_SESSION_TYPE']
+        if args[0] == 'cleanup':
+            result = not run('systemctl', '--user', 'unset-environment', *names)
+            result = not run('dbus-update-activation-environment', *[n + '=' for n in names]) or result
+            return int(result)
+        if not env.get('WAYLAND_DISPLAY') or not env.get('SWAYSOCK'):
+            return 1
+        values = {n: env.get(n, '') for n in names}
+        values.update(XDG_CURRENT_DESKTOP=env.get('XDG_CURRENT_DESKTOP') or 'sway',
+                      XDG_SESSION_DESKTOP=env.get('XDG_SESSION_DESKTOP') or 'sway',
+                      XDG_SESSION_TYPE='wayland')
+        command = ['dbus-update-activation-environment', '--systemd',
+                   *[n + '=' + values[n] for n in names]]
+        os.execvp(command[0], command)
+    state_value = env.get('SWAY_SESSION_STATE', '')
+    if not state_value or not Path(state_value).is_dir():
+        return 2
+    state = Path(state_value)
+    with (state / 'lock').open('w') as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        if len(args) != 1 or args[0] not in ('import', 'cleanup'):
+            print('usage: graphical-env import|cleanup', file=sys.stderr)
+            return 2
+        if args[0] == 'cleanup':
+            return cleanup(state)
+        if not (state / 'active').is_file():
+            return 1
+        if not all(env.get(n) for n in ('WAYLAND_DISPLAY', 'SWAYSOCK', 'DBUS_SESSION_BUS_ADDRESS')):
+            print('graphical-env: import requires running Sway and user D-Bus', file=sys.stderr)
+            return 1
+        if not all(shutil.which(n) for n in ('dinitctl', 'dbus-update-activation-environment')):
+            return 1
+        env.update(XDG_CURRENT_DESKTOP=env.get('XDG_CURRENT_DESKTOP') or 'sway',
+                   XDG_SESSION_DESKTOP=env.get('XDG_SESSION_DESKTOP') or 'sway',
+                   XDG_SESSION_TYPE='wayland')
+        values = [n + '=' + env.get(n, '') for n in
+                  ('SWAYSOCK', 'XDG_CURRENT_DESKTOP', 'XDG_SESSION_DESKTOP', 'XDG_SESSION_TYPE', 'XAUTHORITY')]
+        displays = [n + '=' + env.get(n, '') for n in ('DISPLAY', 'WAYLAND_DISPLAY')]
+        commands = [
+            ['dbus-update-activation-environment', *values, *displays],
+            ['dinitctl', '--user', 'setenv', *values],
+            ['dinitctl', '--user', 'setenv', *displays],
+            ['dinitctl', '--user', 'start', 'graphical.monitor'],
+            ['dinitctl', '--user', 'trigger', 'graphical.target'],
+            ['dinitctl', '--user', 'start', 'graphical.target'],
+        ]
+        for command in commands:
+            if not run(*command):
+                cleanup(state)
+                return 1
+    return 0
+
+
+if __name__ == '__main__':
+    try:
+        sys.exit(main(sys.argv[1:]))
+    except OSError as error:
+        print(error, file=sys.stderr)
+        sys.exit(1)

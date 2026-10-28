@@ -1,0 +1,26 @@
+#!/usr/bin/python3
+"""Wait for udev to stop after requesting shutdown."""
+import os
+from pathlib import Path
+import subprocess
+import sys
+import time
+
+os.environ['PATH'] = '/usr/x86_64-pc-linux-gnu/bin:/usr/bin:/bin'
+if len(sys.argv) != 1:
+    sys.exit(1)
+for attempt in range(10):
+    found = False
+    for path in Path('/proc').glob('[0-9]*/comm'):
+        try:
+            name = path.read_text().splitlines()[0]
+        except (OSError, IndexError):
+            continue
+        if name in ('udevd', 'systemd-udevd'):
+            found = True
+            break
+    if not found:
+        sys.exit(0)
+    subprocess.run(['sleep', '0.1'], check=True)
+print('udev-stopped: daemon still running', file=sys.stderr)
+sys.exit(1)

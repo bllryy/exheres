@@ -1,112 +1,158 @@
-#!/bin/sh
-
-fail() { printf '%s\n' "sway-session: $*" >&2; exit 1; }
-
-case ${XDG_RUNTIME_DIR-} in
-    /*) [ -d "$XDG_RUNTIME_DIR" ] || fail 'XDG_RUNTIME_DIR is not a directory' ;;
-    *) fail 'XDG_RUNTIME_DIR must be an absolute directory' ;;
-esac
-if [ -z "${DBUS_SESSION_BUS_ADDRESS-}" ]; then
-    [ -S "$XDG_RUNTIME_DIR/bus" ] || fail 'shared user bus socket is unavailable'
-    export DBUS_SESSION_BUS_ADDRESS="unix:path=$XDG_RUNTIME_DIR/bus"
-fi
-
-SWAY_SESSION_MANAGER=${SWAY_SESSION_MANAGER:-dinit}
-case $SWAY_SESSION_MANAGER in
-    systemd)
-        systemctl --user show-environment >/dev/null 2>&1 || fail 'systemd user manager unavailable'
-        ;;
-    dinit)
-        dinitctl --user list >/dev/null 2>&1 || fail 'dinit user manager unavailable'
-        ;;
-    *) fail 'SWAY_SESSION_MANAGER must be systemd or dinit' ;;
-esac
-export SWAY_SESSION_MANAGER
-export XDG_CURRENT_DESKTOP=sway
-export XDG_SESSION_DESKTOP=sway
-export XDG_SESSION_TYPE=wayland
-export MOZ_ENABLE_WAYLAND=1
-export QT_QPA_PLATFORM=wayland
-export SDL_VIDEODRIVER=wayland
-
-ssh_auth_sock_set=${SSH_AUTH_SOCK+x}
-ssh_auth_sock_previous=${SSH_AUTH_SOCK-}
-ssh_auth_sock_published=0
-
-cleanup() {
-    status=$?
-    trap - 0
-    trap '' HUP INT TERM
-    result=0
-    if [ "$SWAY_SESSION_MANAGER" = systemd ]; then
-        systemctl --user stop sway-session.target || result=1
-        sh "$(dirname "$0")/graphical-env" cleanup || result=1
-    elif [ -n "${SWAY_SESSION_STATE-}" ]; then
-        if sh "$(dirname "$0")/graphical-env" cleanup; then
-            rm -rf -- "$SWAY_SESSION_STATE" || result=1
-        else
-            printf '%s\n' "sway-session: cleanup failed; retained state: $SWAY_SESSION_STATE" >&2
-            result=1
-        fi
-    fi
-    if [ "$SWAY_SESSION_MANAGER" = dinit ] && [ "$ssh_auth_sock_published" = 1 ]; then
-        dbus-update-activation-environment "SSH_AUTH_SOCK=$ssh_auth_sock_previous" || result=1
-        if [ "$ssh_auth_sock_set" = x ]; then
-            dinitctl --user setenv "SSH_AUTH_SOCK=$ssh_auth_sock_previous" || result=1
-        else
-            dinitctl --user unsetenv SSH_AUTH_SOCK || result=1
-        fi
-    fi
-    [ "$status" -ne 0 ] || status=$result
-    exit "$status"
-}
-child=
-pending_signal=
-pending_status=
-interrupt() {
-    trap '' HUP INT TERM
-    if [ -n "$child" ]; then
-        kill -"$1" "$child" 2>/dev/null
-        wait "$child" 2>/dev/null
-    fi
-    exit "$2"
-}
-trap cleanup 0
-trap 'pending_signal=HUP; pending_status=129' HUP
-trap 'pending_signal=INT; pending_status=130' INT
-trap 'pending_signal=TERM; pending_status=143' TERM
-
-if [ "$SWAY_SESSION_MANAGER" = dinit ]; then
-    SWAY_SESSION_STATE=$(mktemp -d "$XDG_RUNTIME_DIR/sway-session.XXXXXXXXXX") || fail 'cannot create session state'
-    export SWAY_SESSION_STATE
-    : > "$SWAY_SESSION_STATE/active" || fail 'cannot mark session active'
-fi
-
-if [ "$SWAY_SESSION_MANAGER" = systemd ]; then
-    systemctl --user import-environment \
-        XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE || fail 'systemd environment import failed'
-    dbus-update-activation-environment --systemd \
-        XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE || fail 'D-Bus environment import failed'
-    systemctl --user start sway-session.target || fail 'systemd session target failed'
-else
-    dinitctl --user start gcr-ssh-agent || fail 'GCR SSH agent failed'
-    export SSH_AUTH_SOCK="$XDG_RUNTIME_DIR/gcr/ssh"
-    ssh_auth_sock_published=1
-    dbus-update-activation-environment SSH_AUTH_SOCK || fail 'SSH_AUTH_SOCK D-Bus import failed'
-    dinitctl --user setenv SSH_AUTH_SOCK || fail 'SSH_AUTH_SOCK import failed'
-    dinitctl --user setenv XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE || fail 'dinit environment import failed'
-    dbus-update-activation-environment \
-        XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE || fail 'D-Bus environment import failed'
-fi
+#!/usr/bin/python3
+import os
+from pathlib import Path
+import shutil
+import signal
+import subprocess
+import sys
+import tempfile
+import time
 
 
+class SessionSignal(Exception):
+    def __init__(self, status):
+        self.status = status
 
-sway "$@" &
-child=$!
-trap 'interrupt HUP 129' HUP
-trap 'interrupt INT 130' INT
-trap 'interrupt TERM 143' TERM
-[ -z "$pending_signal" ] || interrupt "$pending_signal" "$pending_status"
-wait "$child"
-status=$?
-exit "$status"
+
+def main(args):
+    env = os.environ
+    runtime = env.get('XDG_RUNTIME_DIR', '')
+    if not os.path.isabs(runtime) or not Path(runtime).is_dir():
+        print('sway-session: XDG_RUNTIME_DIR must be an absolute directory', file=sys.stderr)
+        return 1
+    if not env.get('DBUS_SESSION_BUS_ADDRESS'):
+        if not (Path(runtime) / 'bus').is_socket():
+            print('sway-session: shared user bus socket is unavailable', file=sys.stderr)
+            return 1
+        env['DBUS_SESSION_BUS_ADDRESS'] = f'unix:path={runtime}/bus'
+    if env.get('SWAYSOCK') or env.get('WAYLAND_DISPLAY'):
+        print('sway-session: refusing nested graphical session', file=sys.stderr)
+        return 1
+    manager = env.get('SWAY_SESSION_MANAGER') or 'dinit'
+    if manager not in ('dinit', 'systemd'):
+        print('sway-session: SWAY_SESSION_MANAGER must be dinit or systemd', file=sys.stderr)
+        return 2
+    tools = ('sway', 'dbus-update-activation-environment', 'systemctl' if manager == 'systemd' else 'dinitctl')
+    if not all(shutil.which(name) for name in tools):
+        return 1
+    graphical_env = str(Path(__file__).with_name('graphical-env'))
+    env.update(SWAY_SESSION_MANAGER=manager, XDG_CURRENT_DESKTOP='sway',
+               XDG_SESSION_DESKTOP='sway', XDG_SESSION_TYPE='wayland',
+               MOZ_ENABLE_WAYLAND='1', QT_QPA_PLATFORM='wayland', SDL_VIDEODRIVER='wayland')
+    state = None
+    child = None
+    previous_ssh = env.get('SSH_AUTH_SOCK')
+    ssh_published = False
+    result = 1
+    spawning = False
+    pending_signal = None
+
+    def run(*command):
+        try:
+            return subprocess.run(command).returncode == 0
+        except OSError:
+            return False
+
+    def stop_child(signum):
+        if child is not None and child.poll() is None:
+            try:
+                child.send_signal(signum)
+            except ProcessLookupError:
+                child.wait()
+                return
+            deadline = time.monotonic() + 5
+            while child.poll() is None and time.monotonic() < deadline:
+                time.sleep(0.1)
+            if child.poll() is None:
+                child.kill()
+            child.wait()
+
+    def interrupted(signum, _frame):
+        nonlocal pending_signal
+        if spawning:
+            pending_signal = signum
+            return
+        for sig in (signal.SIGHUP, signal.SIGINT, signal.SIGTERM):
+            signal.signal(sig, signal.SIG_IGN)
+        stop_child(signum)
+        raise SessionSignal(128 + signum)
+
+    for sig in (signal.SIGHUP, signal.SIGINT, signal.SIGTERM):
+        signal.signal(sig, interrupted)
+    try:
+        probe = ('systemctl', '--user', 'show-environment') if manager == 'systemd' else ('dinitctl', '--user', 'list')
+        if not run(*probe):
+            return 1
+        names = ('XDG_CURRENT_DESKTOP', 'XDG_SESSION_DESKTOP', 'XDG_SESSION_TYPE')
+        if manager == 'systemd':
+            if not run('systemctl', '--user', 'import-environment', *names):
+                return 1
+            if not run('dbus-update-activation-environment', '--systemd', *names):
+                return 1
+            if not run('systemctl', '--user', 'start', 'sway-session.target'):
+                return 1
+        else:
+            previous = subprocess.run(['dinitctl', '--user', 'getenv', 'SWAYSOCK'],
+                                      stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+            if previous.stdout.rstrip(b'\n'):
+                return 1
+            state = Path(tempfile.mkdtemp(prefix='sway-session.', dir=runtime))
+            env['SWAY_SESSION_STATE'] = str(state)
+            (state / 'active').touch()
+            if not run('dinitctl', '--user', 'start', 'gcr-ssh-agent'):
+                return 1
+            env['SSH_AUTH_SOCK'] = f'{runtime}/gcr/ssh'
+            ssh_published = True
+            if not run('dbus-update-activation-environment', 'SSH_AUTH_SOCK'):
+                return 1
+            if not run('dinitctl', '--user', 'setenv', 'SSH_AUTH_SOCK'):
+                return 1
+            if not run('dinitctl', '--user', 'setenv', *names):
+                return 1
+            if not run('dbus-update-activation-environment', *names):
+                return 1
+        spawning = True
+        try:
+            child = subprocess.Popen(['sway', *args])
+        finally:
+            spawning = False
+        if pending_signal is not None:
+            interrupted(pending_signal, None)
+        status = child.wait()
+        result = status if status >= 0 else 128 - status
+    except SessionSignal as error:
+        result = error.status
+    except OSError as error:
+        print(f'sway-session: {error}', file=sys.stderr)
+        stop_child(signal.SIGTERM)
+        result = 1
+    finally:
+        for sig in (signal.SIGHUP, signal.SIGINT, signal.SIGTERM):
+            signal.signal(sig, signal.SIG_IGN)
+        cleanup_ok = True
+        if manager == 'systemd':
+            cleanup_ok = run('systemctl', '--user', 'stop', 'sway-session.target')
+            cleanup_ok = run(graphical_env, 'cleanup') and cleanup_ok
+        elif state is not None:
+            cleanup_ok = run(graphical_env, 'cleanup')
+            if cleanup_ok:
+                try:
+                    shutil.rmtree(state)
+                except OSError:
+                    cleanup_ok = False
+            if not cleanup_ok:
+                print(f'sway-session: cleanup failed; retained state: {state}', file=sys.stderr)
+        if ssh_published:
+            cleanup_ok = run('dbus-update-activation-environment', f'SSH_AUTH_SOCK={previous_ssh or ""}') and cleanup_ok
+            if previous_ssh is None:
+                restored = run('dinitctl', '--user', 'unsetenv', 'SSH_AUTH_SOCK')
+            else:
+                restored = run('dinitctl', '--user', 'setenv', f'SSH_AUTH_SOCK={previous_ssh}')
+            cleanup_ok = restored and cleanup_ok
+        if not cleanup_ok and result == 0:
+            result = 1
+    return result
+
+
+if __name__ == '__main__':
+    sys.exit(main(sys.argv[1:]))

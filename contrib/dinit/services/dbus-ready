@@ -1,4 +1,4 @@
 type = scripted
-command = /etc/dinit.d/helpers/console-dbus-ready
+command = /etc/dinit.d/helpers/dbus-ready
 depends-on: dbus
 start-timeout = 30

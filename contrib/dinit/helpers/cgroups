@@ -1,11 +1,5 @@
 #!/usr/bin/python3
-"""Mount cgroup2 plus Mullvad's v1 net_cls; never unmount or move processes.
-
-Sources: mullvadvpn-app tag 2026.5, talpid-cgroup/src/{lib,v1,v2}.rs;
-Chimera dinit early/scripts/cgroups.sh (cgroup2 root with nsdelegate).
-Keep net_cls beside, not inside, cgroup2: its directories represent cgroups.
-Mullvad discovers the separate v1 mount via /proc/mounts.
-"""
+"""Mount cgroup2 and Mullvad's separate net_cls hierarchy."""
 import re
 import subprocess
 import sys
@@ -86,5 +80,5 @@ if __name__ == '__main__':
             raise RuntimeError('no arguments accepted')
         initialize()
     except (OSError, RuntimeError, subprocess.CalledProcessError) as error:
-        print(f'console-cgroups: {error}', file=sys.stderr)
+        print(f'cgroups: {error}', file=sys.stderr)
         sys.exit(1)

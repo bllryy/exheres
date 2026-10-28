@@ -1,5 +1,5 @@
 type = scripted
-command = /etc/dinit.d/helpers/console-uinput
+command = /etc/dinit.d/helpers/uinput
 log-type = file
 logfile = /var/log/console-uinput.log
 logfile-permissions = 0600

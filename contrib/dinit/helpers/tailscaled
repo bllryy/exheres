@@ -1,5 +1,5 @@
 #!/usr/host/bin/python3
-"""Foreground supervisor; no shell evaluation and no VPN state inspection."""
+"""Supervise tailscaled and wait for its socket to disappear on exit."""
 import argparse
 import os
 from pathlib import Path
@@ -94,7 +94,7 @@ def main():
                             status = child.wait()
                         break
     except (OSError, ValueError) as error:
-        print('console-tailscaled: ' + str(error), file=sys.stderr)
+        print('tailscaled: ' + str(error), file=sys.stderr)
     finally:
         if started:
             try:

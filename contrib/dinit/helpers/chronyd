@@ -1,0 +1,44 @@
+#!/usr/bin/python3
+"""Start chronyd with validated sysconfig options."""
+import os
+import subprocess
+import sys
+import tempfile
+
+script = '''set -eu
+OPTIONS=
+config=/etc/sysconfig/chronyd
+if [ -e "$config" ]; then
+    metadata=$(/usr/host/bin/stat -Lc '%u %a' -- "$config")
+    owner=${metadata%% *}
+    mode=${metadata#* }
+    if [ "$owner" != 0 ] || [ "$((0$mode & 022))" -ne 0 ] || [ ! -f "$config" ]; then
+        printf '%s\\n' 'chronyd: unsafe options file' >&2
+        exit 1
+    fi
+    . "$config"
+fi
+set -f
+set -- $OPTIONS
+{ printf '%s\\0' "$PWD"
+umask
+printf '%s\\0' /usr/sbin/chronyd -n "$@"
+printf '\\0'
+/usr/bin/env -0
+} >&__RESULT_FD__
+'''
+with tempfile.TemporaryFile() as result:
+    fd = result.fileno()
+    child = subprocess.run(['/bin/sh', '-c', script.replace('__RESULT_FD__', str(fd))],
+                           pass_fds=(fd,))
+    if child.returncode:
+        sys.exit(child.returncode if child.returncode > 0 else 128 - child.returncode)
+    result.seek(0)
+    cwd, payload = result.read().split(b'\0', 1)
+    mask, payload = payload.split(b'\n', 1)
+    arguments, environment = payload.split(b'\0\0', 1)
+args = [os.fsdecode(value) for value in arguments.split(b'\0')]
+env = dict(os.fsdecode(value).split('=', 1) for value in environment.rstrip(b'\0').split(b'\0') if value)
+os.chdir(os.fsdecode(cwd))
+os.umask(int(mask, 8))
+os.execve(args[0], args, env)

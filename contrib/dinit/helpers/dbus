@@ -1,5 +1,5 @@
 #!/usr/bin/python3 -I
-"""Start supervised system bus, allowing a stale socket after soft reboot."""
+"""Start the supervised system bus after checking its socket."""
 import errno
 import os
 from pathlib import Path
@@ -50,5 +50,5 @@ if __name__ == '__main__':
     try:
         main()
     except (OSError, RuntimeError) as error:
-        print(f'console-dbus: {error}', file=sys.stderr)
+        print(f'dbus: {error}', file=sys.stderr)
         sys.exit(1)

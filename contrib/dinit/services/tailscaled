@@ -1,5 +1,5 @@
 type = process
-command = /etc/dinit.d/helpers/console-tailscaled
+command = /etc/dinit.d/helpers/tailscaled
 restart = on-failure
 restart-delay = 1
 restart-limit-count = 5

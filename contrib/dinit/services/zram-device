@@ -1,9 +1,8 @@
-# Adapted from chimera-linux/dinit-chimera services/zram-device.
 type = scripted
 log-type = buffer
 log-buffer-size = 65536
-command = /etc/dinit.d/helpers/zram.sh start $1
-stop-command = /etc/dinit.d/helpers/zram.sh stop $1
+command = /etc/dinit.d/helpers/zram start $1
+stop-command = /etc/dinit.d/helpers/zram stop $1
 depends-on = udev-settle
 start-timeout = 120
 stop-timeout = 0

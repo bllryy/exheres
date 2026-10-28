@@ -1,5 +1,5 @@
 type = process
-command = /etc/dinit.d/helpers/console-dbus
+command = /etc/dinit.d/helpers/dbus
 ready-notification = pipefd:4
 working-dir = /
 log-type = buffer

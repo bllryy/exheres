@@ -1,4 +1,4 @@
 type = process
-command = /etc/dinit.d/helpers/console-rsyslog
+command = /etc/dinit.d/helpers/rsyslog
 depends-on = local-mounts
 restart = true

@@ -1,0 +1,77 @@
+services/libvirtd
+Adapted from Artix libvirt-dinit (20211102-6), GPL2.
+Maintainer: Muhammad Herdiansyah <koni@artixlinux.org>
+
+services/virtlockd
+Adapted from Artix libvirt-dinit (20211102-6), GPL2.
+Maintainer: Muhammad Herdiansyah <koni@artixlinux.org>
+
+services/virtlogd
+Adapted from Artix libvirt-dinit (20211102-6), GPL2.
+Maintainer: Muhammad Herdiansyah <koni@artixlinux.org>
+
+services/zram-device
+Adapted from chimera-linux/dinit-chimera services/zram-device.
+
+user/dbus
+Reviewed against installed backend (SHA256):
+4dd328fd58a4de9ab21c8ba3db50edd2d17082db493124f7466fbd64ada6ff46
+https://github.com/chimera-linux/turnstile/blob/75f2b1c4c9e88a674edaa6f95b483a6656b960ba/backend/dinit
+
+user/pipewire
+Chimera main/pipewire/files/pipewire.user and Artix pipewire-dinit/
+pipewire.user use distro-patched native notification. Stock Exherbo lacks it:
+use pipewire-ready instead. No hard dbus dependency for core audio.
+
+user/pipewire-pulse
+Chimera main/pipewire/files/pipewire-pulse.user and Artix pipewire-dinit/
+pipewire-pulse.user depend on PipeWire, not WirePlumber. Policy is separate.
+
+user/wireplumber
+Chimera main/wireplumber/files/wireplumber.user depends on PipeWire only.
+
+helpers/local-mounts
+Mount filter adapted from Chimera dinit early/scripts/fs-fstab.sh.
+Copyright 2021-2024 q66 <q66@chimera-linux.org>
+
+Redistribution and use in source and binary forms, with or without modification,
+are permitted provided that the following conditions are met:
+1. Redistributions of source code must retain the above copyright notice, this
+   list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+(INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON
+ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+helpers/zram
+Adapted from chimera-linux/dinit-chimera early/scripts/zram.sh (BSD-2-Clause).
+Copyright 2021-2024 q66 <q66@chimera-linux.org>
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met:
+1. Redistributions of source code must retain the above copyright notice,
+   this list of conditions and the following disclaimer.
+2. Redistributions in binary form must reproduce the above copyright notice,
+   this list of conditions and the following disclaimer in the documentation
+   and/or other materials provided with the distribution.
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE
+ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE
+LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+POSSIBILITY OF SUCH DAMAGE.
+

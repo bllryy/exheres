@@ -1,0 +1,18 @@
+#!/usr/bin/python3
+"""Start xfs_healer with a validated runtime directory."""
+import os
+import subprocess
+import sys
+
+healer = '/usr/x86_64-pc-linux-gnu/libexec/xfsprogs/xfs_healer'
+try:
+    status = subprocess.run([healer, '--supported', '/']).returncode
+    if status:
+        sys.exit(status if status > 0 else 128 - status)
+    os.environ.pop('SERVICE_MODE', None)
+    os.execv(healer, [healer, '/'])
+except FileNotFoundError:
+    sys.exit(127)
+except OSError as error:
+    print(error, file=sys.stderr)
+    sys.exit(126)

@@ -1,5 +1,5 @@
 type = scripted
-command = /etc/dinit.d/helpers/console-cgroups
+command = /etc/dinit.d/helpers/cgroups
 depends-on: local-mounts
 log-type = file
 logfile = /var/log/console-cgroups.log

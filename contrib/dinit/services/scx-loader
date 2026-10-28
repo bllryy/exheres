@@ -1,5 +1,5 @@
 type = process
-command = /etc/dinit.d/helpers/console-scx-loader
+command = /etc/dinit.d/helpers/scx-loader
 term-signal = INT
 options = unmask-intr
 restart = false

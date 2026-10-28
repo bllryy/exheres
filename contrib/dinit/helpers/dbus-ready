@@ -1,0 +1,25 @@
+#!/usr/bin/python3
+"""Wait for the system bus to answer method calls."""
+import os
+import subprocess
+import sys
+import time
+
+os.environ['PATH'] = '/usr/x86_64-pc-linux-gnu/bin:/usr/bin:/bin'
+if len(sys.argv) != 1:
+    sys.exit(2)
+for attempt in range(10):
+    try:
+        status = subprocess.run([
+            'dbus-send', '--bus=unix:path=/run/dbus/system_bus_socket',
+            '--dest=org.freedesktop.DBus', '--type=method_call', '--print-reply',
+            '--reply-timeout=1000', '/org/freedesktop/DBus',
+            'org.freedesktop.DBus.ListNames',
+        ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL).returncode
+    except OSError:
+        status = 1
+    if status == 0:
+        sys.exit(0)
+    time.sleep(1)
+print('dbus-ready: system bus did not answer ListNames', file=sys.stderr)
+sys.exit(1)

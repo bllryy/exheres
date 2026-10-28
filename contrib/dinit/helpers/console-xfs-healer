@@ -1,6 +1,0 @@
-#!/bin/sh
-set -eu
-healer=/usr/x86_64-pc-linux-gnu/libexec/xfsprogs/xfs_healer
-"$healer" --supported /
-unset SERVICE_MODE
-exec "$healer" /

@@ -1,5 +1,5 @@
 #!/usr/bin/python3 -I
-"""Candidate runtime/readiness/marker helper; requires installed Python 3 stdlib."""
+"""Wait for turnstile to accept connections on its control socket."""
 import os
 import socket
 import stat
@@ -70,5 +70,5 @@ if __name__ == '__main__':
     try:
         sys.exit(main(sys.argv[1] if len(sys.argv) == 2 else ''))
     except (OSError, RuntimeError, ValueError) as error:
-        print('console-turnstile: ' + str(error), file=sys.stderr)
+        print('turnstile: ' + str(error), file=sys.stderr)
         sys.exit(1)

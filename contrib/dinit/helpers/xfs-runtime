@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Prepare persistent XFS scrub stamp directory, without following symlinks."""
+"""Verify XFS health monitoring support and filesystem availability."""
 import os
 import stat
 import sys

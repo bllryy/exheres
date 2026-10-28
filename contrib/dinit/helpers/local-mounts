@@ -1,0 +1,17 @@
+#!/usr/bin/python3
+"""Check root filesystem access and mount local filesystems."""
+import os
+import subprocess
+import sys
+
+os.environ['PATH'] = '/usr/x86_64-pc-linux-gnu/bin:/usr/bin:/bin'
+try:
+    status = subprocess.run(['findmnt', '--fstab', '--target', '/']).returncode
+    if status == 0:
+        os.execvp('mount', ['mount', '--all', '--test-opts',
+                          'no_netdev,nosysfs,noproc,nodevtmpfs,nodevpts,nosecurityfs,nosmackfs'])
+except OSError as error:
+    print(error, file=sys.stderr)
+    sys.exit(127 if isinstance(error, FileNotFoundError) else 126)
+print('local-mounts: no root entry in /etc/fstab; refusing to skip root validation', file=sys.stderr)
+sys.exit(1)

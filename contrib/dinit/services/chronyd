@@ -1,5 +1,5 @@
 type = process
-command = /bin/sh /etc/dinit.d/helpers/console-chronyd
+command = /etc/dinit.d/helpers/chronyd
 log-type = buffer
 restart = true
 depends-on: local-mounts

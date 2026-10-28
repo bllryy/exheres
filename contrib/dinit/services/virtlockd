@@ -1,5 +1,3 @@
-# Adapted from Artix libvirt-dinit (20211102-6), GPL2.
-# Maintainer: Muhammad Herdiansyah <koni@artixlinux.org>
 type = process
 command = /usr/x86_64-pc-linux-gnu/bin/virtlockd
 depends-on = local-mounts

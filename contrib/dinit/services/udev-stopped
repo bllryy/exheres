@@ -1,5 +1,5 @@
 type = scripted
-command = /etc/dinit.d/helpers/console-udev-stopped
+command = /etc/dinit.d/helpers/udev-stopped
 log-type = buffer
 restart = false
 depends-on: preflight

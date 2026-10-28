@@ -1,4 +1,4 @@
 type = scripted
-command = /etc/dinit.d/helpers/console-libvirt-ready virtlogd
+command = /etc/dinit.d/helpers/libvirt-ready virtlogd
 depends-on = virtlogd
 start-timeout = 30

@@ -1,0 +1,22 @@
+#!/usr/bin/python3
+"""Wait for udev control requests to succeed."""
+import os
+import subprocess
+import sys
+
+os.environ['PATH'] = '/usr/x86_64-pc-linux-gnu/bin:/usr/bin:/bin'
+if len(sys.argv) == 2 and sys.argv[1] == '--probe-loop':
+    while True:
+        try:
+            status = subprocess.run(['timeout', '--signal=KILL', '2', 'udevadm',
+                                     'control', '--timeout=1', '--reload']).returncode
+        except OSError:
+            status = 1
+        if status == 0:
+            sys.exit(0)
+        subprocess.run(['sleep', '0.2'])
+if len(sys.argv) != 1:
+    print('udev-ready: no arguments accepted', file=sys.stderr)
+    sys.exit(1)
+os.execvp('timeout', ['timeout', '--signal=KILL', '30', sys.executable,
+                      os.path.abspath(__file__), '--probe-loop'])

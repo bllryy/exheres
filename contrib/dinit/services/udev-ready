@@ -1,5 +1,5 @@
 type = scripted
-command = /etc/dinit.d/helpers/console-udev-ready
+command = /etc/dinit.d/helpers/udev-ready
 log-type = buffer
 restart = false
 depends-on: udevd

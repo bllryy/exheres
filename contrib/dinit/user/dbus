@@ -1,16 +1,3 @@
-# Turnstile 0.1.11 user service candidate, not a system service.
-# Install in a configured user service directory; opt in via boot.d/dbus.
-# Backend generates boot and login.target: do not install replacements.
-# Reviewed against installed backend (SHA256):
-# 4dd328fd58a4de9ab21c8ba3db50edd2d17082db493124f7466fbd64ada6ff46
-# https://github.com/chimera-linux/turnstile/blob/75f2b1c4c9e88a674edaa6f95b483a6656b960ba/backend/dinit
-# Requires an absolute, user-owned, mode-0700 XDG_RUNTIME_DIR before startup.
-# boot.d failures are tolerated by backend waits-for, not a fail-closed gate.
-# Stock Exherbo dbus: traditional Exec activation, no --dinit-activation.
-# --print-address signals readiness only after the bus starts listening.
-# Turnstile export-dbus-address=true exports this socket to PAM logins.
-# Later Sway variables need BOTH dinitctl setenv and
-# dbus-update-activation-environment; neither environment follows shell changes.
 type = process
 log-type = buffer
 command = /usr/x86_64-pc-linux-gnu/bin/dbus-daemon --session --nofork --nopidfile --address=unix:path=${XDG_RUNTIME_DIR}/bus --print-address=3

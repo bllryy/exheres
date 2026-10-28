@@ -1,0 +1,19 @@
+#!/usr/bin/python3
+"""Trigger udev events and wait for device initialization."""
+import os
+import subprocess
+import sys
+
+os.environ['PATH'] = '/usr/x86_64-pc-linux-gnu/bin:/usr/bin:/bin'
+if len(sys.argv) != 1:
+    sys.exit(1)
+try:
+    status = subprocess.run(['udevadm', 'trigger', '--type=subsystems', '--action=add']).returncode
+    if status:
+        sys.exit(status if status > 0 else 128 - status)
+    os.execvp('udevadm', ['udevadm', 'trigger', '--type=devices', '--action=add'])
+except FileNotFoundError:
+    sys.exit(127)
+except OSError as error:
+    print(error, file=sys.stderr)
+    sys.exit(126)
