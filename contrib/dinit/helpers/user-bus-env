@@ -1,0 +1,16 @@
+#!/bin/sh
+# Give bus clients concrete address without relying on login shell environment.
+case "${XDG_RUNTIME_DIR-}" in
+    /*) ;;
+    *) printf '%s\n' 'user-bus-env: XDG_RUNTIME_DIR must be absolute' >&2; exit 1 ;;
+esac
+if [ ! -d "$XDG_RUNTIME_DIR" ]; then
+    printf '%s\n' 'user-bus-env: XDG_RUNTIME_DIR must exist' >&2
+    exit 1
+fi
+if [ "$#" -eq 0 ]; then
+    printf '%s\n' 'user-bus-env: command required' >&2
+    exit 1
+fi
+export DBUS_SESSION_BUS_ADDRESS="unix:path=${XDG_RUNTIME_DIR}/bus"
+exec "$@"

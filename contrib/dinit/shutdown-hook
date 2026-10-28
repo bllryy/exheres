@@ -1,4 +1,7 @@
 #!/bin/sh
+# dinit 0.22.1 skips fallback swapoff/unmount when this hook succeeds.
+# Preserve mounts and swap for soft reboot; reject other modes so dinit
+# performs its normal shutdown teardown.
 set -eu
 PATH=/usr/x86_64-pc-linux-gnu/bin:/usr/bin:/bin
 export PATH

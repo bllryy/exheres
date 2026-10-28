@@ -1,0 +1,9 @@
+# WirePlumber 0.5.18 candidate. Sole session manager: no pipewire-media-session.
+# Chimera main/wireplumber/files/wireplumber.user depends on PipeWire only.
+# D-Bus enables optional integrations; no graphical target required.
+# Hard dependency also orders shutdown before core PipeWire.
+type = process
+log-type = buffer
+command = /bin/sh /etc/dinit.d/helpers/user-bus-env /usr/x86_64-pc-linux-gnu/bin/wireplumber
+depends-on = pipewire-ready
+depends-on = dbus

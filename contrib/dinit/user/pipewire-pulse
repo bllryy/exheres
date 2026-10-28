@@ -1,0 +1,10 @@
+# Optional PulseAudio protocol server, not standalone pulseaudio.
+# Disable competing pulseaudio/autospawn/socket activation before opting in.
+# Chimera main/pipewire/files/pipewire-pulse.user and Artix pipewire-dinit/
+# pipewire-pulse.user depend on PipeWire, not WirePlumber. Policy is separate.
+# No readiness claim for Pulse socket; clients may connect after startup.
+type = process
+log-type = buffer
+command = /bin/sh /etc/dinit.d/helpers/user-bus-env /usr/x86_64-pc-linux-gnu/bin/pipewire-pulse
+depends-on = pipewire-ready
+depends-on = dbus

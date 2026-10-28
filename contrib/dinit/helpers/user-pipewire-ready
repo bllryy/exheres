@@ -1,0 +1,18 @@
+#!/bin/sh
+# Probe protocol round-trip, not mere socket existence. Never autospawn daemon.
+# Bound each attempt and total retries; use installed client configuration.
+set -eu
+export PIPEWIRE_REMOTE=pipewire-0
+export PIPEWIRE_CONFIG_DIR=/usr/share/pipewire
+export PIPEWIRE_CONFIG_NAME=client.conf
+attempt=0
+while [ "$attempt" -lt 50 ]; do
+    if /usr/x86_64-pc-linux-gnu/bin/timeout 1 \
+        /usr/x86_64-pc-linux-gnu/bin/pw-cli info 0 >/dev/null 2>&1; then
+        exit 0
+    fi
+    attempt=$((attempt + 1))
+    /usr/x86_64-pc-linux-gnu/bin/sleep 0.1
+done
+printf '%s\n' 'PipeWire protocol readiness timed out' >&2
+exit 1

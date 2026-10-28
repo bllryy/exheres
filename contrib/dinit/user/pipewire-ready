@@ -1,0 +1,5 @@
+# Install helper at this path before opting in. No native notify in stock build.
+type = scripted
+command = /etc/dinit.d/helpers/user-pipewire-ready
+depends-on = pipewire
+start-timeout = 65
