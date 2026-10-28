@@ -1,23 +1,31 @@
-import importlib.util
 import re
 import tempfile
 import tomllib
 import unittest
 from pathlib import Path
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+from package_updater import common, kernel as kernel_mod, prepare as prepare_mod
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts/update-packages.py"
-spec = importlib.util.spec_from_file_location("update_packages_checks", SCRIPT)
-updater = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(updater)
+
 
 
 class VersionChecks(unittest.TestCase):
     def test_numeric_comparison(self):
-        self.assertEqual(updater.compare("1.2.9", "1.2.10"), "update")
-        self.assertEqual(updater.compare("2.0", "2.0.0"), "current")
-        self.assertEqual(updater.compare("2.1", "2.0"), "ahead")
-        self.assertEqual(updater.compare("1.0", "2.0rc1"), "incomparable")
-        self.assertEqual(updater.compare("0_pre20260803", "1.0"), "incomparable")
+        self.assertEqual(common.compare("1.2.9", "1.2.10"), "update")
+        self.assertEqual(common.compare("2.0", "2.0.0"), "current")
+        self.assertEqual(common.compare("2.1", "2.0"), "ahead")
+        self.assertEqual(common.compare("1.0", "2.0rc1"), "incomparable")
+        self.assertEqual(common.compare("0_pre20260803", "1.0"), "incomparable")
+
+    def test_comparison_ignores_local_recipe_revision(self):
+        self.assertEqual(common.compare("0.22.1-r3", "0.22.1"), "current")
+        self.assertEqual(common.compare("128-r1", "128"), "current")
+        self.assertEqual(common.compare("128-r1", "129"), "update")
+        self.assertEqual(common.compare("128-r1", "127"), "ahead")
+        self.assertEqual(common.compare("128", "128-r1"), "incomparable")
+        self.assertEqual(common.compare("128-r0", "128"), "incomparable")
 
     def test_recipes_detect_multiple_versions(self):
         with tempfile.TemporaryDirectory() as directory:
@@ -25,17 +33,17 @@ class VersionChecks(unittest.TestCase):
             package = root / "packages/app-misc/example"
             package.mkdir(parents=True)
             (package / "example-0_pre20260803.exheres-0").touch()
-            found, problems = updater.recipes(root)
+            found, problems = common.recipes(root)
             self.assertEqual(found, {"app-misc/example": "0_pre20260803"})
             self.assertEqual(problems, [])
             (package / "example-1.0.exheres-0").touch()
-            _, problems = updater.recipes(root)
+            _, problems = common.recipes(root)
             self.assertIn("multiple versions for app-misc/example", problems)
 
     def test_kernel_uses_published_index_not_aur(self):
         with (SCRIPT.parents[1] / "nvchecker.toml").open("rb") as file:
             config = tomllib.load(file)
-        self.assertNotIn(updater.KERNEL, config)
+        self.assertNotIn(common.KERNEL, config)
         self.assertEqual(config["app-misc/ente-auth"]["aur"], "ente-auth")
         self.assertTrue(config["app-misc/ente-auth"]["strip_release"])
 
@@ -46,9 +54,9 @@ class VersionChecks(unittest.TestCase):
             package.mkdir(parents=True)
             recipe = package / "kernel-cachyos-7.2.9-r1.exheres-0"
             recipe.write_text('MY_RELEASE="${PV}-2"\n')
-            self.assertEqual(updater.kernel_release(root, "7.2.9-r1"), "7.2.9-2")
+            self.assertEqual(kernel_mod.kernel_release(root, "7.2.9-r1"), "7.2.9-2")
             recipe.write_text('MY_RELEASE="${PV}-${REL}"\n')
-            self.assertIsNone(updater.kernel_release(root, "7.2.9-r1"))
+            self.assertIsNone(kernel_mod.kernel_release(root, "7.2.9-r1"))
 
     def test_tarball_feeds(self):
         with (SCRIPT.parents[1] / "nvchecker.toml").open("rb") as file:
@@ -67,7 +75,7 @@ class VersionChecks(unittest.TestCase):
         }
         for name, (url, html, version) in examples.items():
             with self.subTest(name=name):
-                self.assertNotIn(name, updater.UNSUPPORTED)
+                self.assertNotIn(name, common.UNSUPPORTED)
                 self.assertEqual(config[name]["source"], "regex")
                 self.assertEqual(config[name]["url"], url)
                 self.assertEqual(re.findall(config[name]["regex"], html), [version])
@@ -90,17 +98,38 @@ class VersionChecks(unittest.TestCase):
         self.assertEqual(entry["url"], "https://zoom.us/rest/download?os=linux")
         response = '{"downloadVO":{"zoom":{"version":"7.2.1.5760"},"zoomX86":{"version":"5.4.53391.1108"}}}'
         self.assertEqual(re.findall(entry["regex"], response), ["7.2.1.5760"])
-        self.assertEqual(updater.compare("7.2.1.5760", "7.2.1.5760"), "current")
+        self.assertEqual(common.compare("7.2.1.5760", "7.2.1.5760"), "current")
+
+    def test_libvirt_tracks_stable_tags(self):
+        with (SCRIPT.parents[1] / "nvchecker.toml").open("rb") as file:
+            config = tomllib.load(file)
+        for package in ("libvirt", "libvirt-glib", "libvirt-python"):
+            entry = config[f"virtualization-lib/{package}"]
+            with self.subTest(package=package):
+                self.assertEqual(entry["source"], "gitlab")
+                self.assertEqual(entry["gitlab"], f"libvirt/{package}")
+                self.assertTrue(entry["use_max_tag"])
+                self.assertEqual(entry["prefix"], "v")
+                for tag in ("v5.0.0", "v12.8.0", "v12.8.0-rc1"):
+                    self.assertEqual(bool(re.fullmatch(entry["include_regex"], tag)), not tag.endswith("-rc1"))
+
+    def test_polkit_tracks_numeric_tags(self):
+        with (SCRIPT.parents[1] / "nvchecker.toml").open("rb") as file:
+            entry = tomllib.load(file)["sys-auth/polkit"]
+        self.assertEqual(entry["github"], "polkit-org/polkit")
+        self.assertTrue(entry["use_max_tag"])
+        self.assertIsNotNone(re.fullmatch(entry["include_regex"], "128"))
+        self.assertIsNone(re.fullmatch(entry["include_regex"], "128-rc1"))
 
     def test_repository_coverage(self):
         root = SCRIPT.parents[1]
         with (root / "nvchecker.toml").open("rb") as file:
             config = tomllib.load(file)
-        found, problems = updater.recipes(root)
+        found, problems = common.recipes(root)
         self.assertEqual(problems, [])
-        self.assertEqual(set(found), (set(config) - {"__config__"}) | set(updater.UNSUPPORTED) | set(updater.official_config(root)) | {updater.KERNEL})
-        self.assertFalse((set(config) - {"__config__"}) & set(updater.UNSUPPORTED))
-        self.assertNotIn(updater.KERNEL, config)
+        self.assertEqual(set(found), (set(config) - {"__config__"}) | set(common.UNSUPPORTED) | set(prepare_mod.official_config(root)) | {common.KERNEL})
+        self.assertFalse((set(config) - {"__config__"}) & set(common.UNSUPPORTED))
+        self.assertNotIn(common.KERNEL, config)
 
 
 if __name__ == "__main__":

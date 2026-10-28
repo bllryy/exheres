@@ -1,4 +1,3 @@
-import importlib.util
 import io
 import os
 import subprocess
@@ -8,10 +7,11 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+from package_updater import common, kernel as kernel_mod
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts/update-packages.py"
-spec = importlib.util.spec_from_file_location("update_packages_kernel", SCRIPT)
-updater = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(updater)
+
 TEMPLATE = '''MY_RELEASE="${PV}-1"
 SLOT="0"
 src_unpack() {
@@ -52,7 +52,7 @@ class KernelUpdates(unittest.TestCase):
         def download(url, destination):
             urls.append(url)
             if error == "download" and "headers" in url:
-                raise updater.UpdateError("no matching headers")
+                raise common.UpdateError("no matching headers")
             destination.write_bytes(b"archive")
             if error == "hash" and "headers" in url:
                 return "c" * 64
@@ -60,13 +60,13 @@ class KernelUpdates(unittest.TestCase):
 
         def inspect(_archive, name, _release):
             if error == "inspect" and name == "linux-cachyos-eevdf-lto-headers":
-                raise updater.UpdateError("mismatched headers")
+                raise common.UpdateError("mismatched headers")
 
         hashes = {"linux-cachyos-eevdf-lto": "a" * 64, "linux-cachyos-eevdf-lto-headers": "b" * 64}
-        with patch.object(updater, "published_release", return_value=(version, hashes)), \
-             patch.object(updater, "download", side_effect=download), \
-             patch.object(updater, "inspect_archive", side_effect=inspect):
-            updater.update(self.root)
+        with patch.object(kernel_mod, "published_release", return_value=(version, hashes)), \
+             patch.object(kernel_mod, "download", side_effect=download), \
+             patch.object(kernel_mod, "inspect_archive", side_effect=inspect):
+            kernel_mod.update(self.root)
         return urls
 
     def names(self):
@@ -77,21 +77,21 @@ class KernelUpdates(unittest.TestCase):
         def download(url, destination):
             destination.write_bytes(b"archive")
             return hashes["linux-cachyos-eevdf-lto-headers" if "headers" in url else "linux-cachyos-eevdf-lto"]
-        with patch.object(updater, "published_release") as published, \
-             patch.object(updater, "download", side_effect=download), \
-             patch.object(updater, "inspect_archive"):
-            self.assertEqual(updater.update(self.root, ("7.2.9-2", hashes)), "7.2.9-2")
+        with patch.object(kernel_mod, "published_release") as published, \
+             patch.object(kernel_mod, "download", side_effect=download), \
+             patch.object(kernel_mod, "inspect_archive"):
+            self.assertEqual(kernel_mod.update(self.root, ("7.2.9-2", hashes)), "7.2.9-2")
         published.assert_not_called()
-        with patch.object(updater, "published_release") as published, patch.object(updater, "download") as downloaded:
-            self.assertIsNone(updater.update(self.root, ("7.2.9-2", hashes)))
+        with patch.object(kernel_mod, "published_release") as published, patch.object(kernel_mod, "download") as downloaded:
+            self.assertIsNone(kernel_mod.update(self.root, ("7.2.9-2", hashes)))
         published.assert_not_called()
         downloaded.assert_not_called()
 
     def test_invalid_snapshot_preserves_recipe(self):
         before = self.recipe("7.2.9", TEMPLATE).read_bytes()
         for hashes in ({}, {"linux-cachyos-eevdf-lto": "x", "linux-cachyos-eevdf-lto-headers": "b" * 64}):
-            with self.subTest(hashes=hashes), self.assertRaises(updater.UpdateError):
-                updater.update(self.root, ("7.2.9-2", hashes))
+            with self.subTest(hashes=hashes), self.assertRaises(common.UpdateError):
+                kernel_mod.update(self.root, ("7.2.9-2", hashes))
         self.assertEqual((self.package / "kernel-cachyos-7.2.9.exheres-0").read_bytes(), before)
 
     def test_changed_source_during_index_fetch_preserves_it(self):
@@ -100,10 +100,10 @@ class KernelUpdates(unittest.TestCase):
         def published():
             source.write_text(TEMPLATE + "# changed during index fetch\n")
             return "7.2.9-2", hashes
-        with patch.object(updater, "published_release", side_effect=published), \
-             patch.object(updater, "download") as download:
-            with self.assertRaisesRegex(updater.UpdateError, "changed while fetching index"):
-                updater.update(self.root)
+        with patch.object(kernel_mod, "published_release", side_effect=published), \
+             patch.object(kernel_mod, "download") as download:
+            with self.assertRaisesRegex(common.UpdateError, "changed while fetching index"):
+                kernel_mod.update(self.root)
         download.assert_not_called()
         self.assertIn("changed during index fetch", source.read_text())
         self.assertEqual(self.names(), [source.name])
@@ -118,10 +118,10 @@ class KernelUpdates(unittest.TestCase):
             os.replace(replacement, source)
             return "7.2.9-2", hashes
 
-        with patch.object(updater, "published_release", side_effect=published), \
-             patch.object(updater, "download") as download:
-            with self.assertRaisesRegex(updater.UpdateError, "changed while fetching index"):
-                updater.update(self.root)
+        with patch.object(kernel_mod, "published_release", side_effect=published), \
+             patch.object(kernel_mod, "download") as download:
+            with self.assertRaisesRegex(common.UpdateError, "changed while fetching index"):
+                kernel_mod.update(self.root)
         download.assert_not_called()
         self.assertEqual(source.read_text(), TEMPLATE)
         self.assertEqual(self.names(), [source.name])
@@ -133,9 +133,9 @@ class KernelUpdates(unittest.TestCase):
             destination.write_bytes(b"archive")
             source.write_text(TEMPLATE + "# concurrent edit\n")
             return hashes["linux-cachyos-eevdf-lto-headers" if "headers" in url else "linux-cachyos-eevdf-lto"]
-        with patch.object(updater, "download", side_effect=download), patch.object(updater, "inspect_archive"):
-            with self.assertRaisesRegex(updater.UpdateError, "changed while preparing"):
-                updater.update(self.root, ("7.2.9-2", hashes))
+        with patch.object(kernel_mod, "download", side_effect=download), patch.object(kernel_mod, "inspect_archive"):
+            with self.assertRaisesRegex(common.UpdateError, "changed while preparing"):
+                kernel_mod.update(self.root, ("7.2.9-2", hashes))
         self.assertIn("concurrent edit", source.read_text())
         self.assertEqual(self.names(), [source.name])
 
@@ -150,8 +150,8 @@ class KernelUpdates(unittest.TestCase):
                 raise FileExistsError(target)
             return original_link(staged, destination)
 
-        with patch.object(updater.os, "link", side_effect=collide):
-            with self.assertRaisesRegex(updater.UpdateError, "Refusing to overwrite"):
+        with patch.object(kernel_mod.os, "link", side_effect=collide):
+            with self.assertRaisesRegex(common.UpdateError, "Refusing to overwrite"):
                 self.run_update("7.2.9-2")
         self.assertEqual(source.read_text(), TEMPLATE)
         self.assertEqual(target.read_bytes(), b"other maintainer's recipe")
@@ -167,7 +167,7 @@ class KernelUpdates(unittest.TestCase):
             return original_unlink(path, *args, **kwargs)
 
         with patch.object(Path, "unlink", autospec=True, side_effect=fail_source_removal):
-            with self.assertRaisesRegex(updater.UpdateError, "Could not replace old recipe"):
+            with self.assertRaisesRegex(common.UpdateError, "Could not replace old recipe"):
                 self.run_update("7.2.9-2")
         self.assertEqual(source.read_text(), TEMPLATE)
         self.assertFalse(target.exists())
@@ -177,8 +177,8 @@ class KernelUpdates(unittest.TestCase):
         self.assertEqual(
             urls,
             [
-                f"{updater.CDN}/linux-cachyos-eevdf-lto-7.2.9-2-x86_64_v3.pkg.tar.zst",
-                f"{updater.CDN}/linux-cachyos-eevdf-lto-headers-7.2.9-2-x86_64_v3.pkg.tar.zst",
+                f"{kernel_mod.CDN}/linux-cachyos-eevdf-lto-7.2.9-2-x86_64_v3.pkg.tar.zst",
+                f"{kernel_mod.CDN}/linux-cachyos-eevdf-lto-headers-7.2.9-2-x86_64_v3.pkg.tar.zst",
             ],
         )
         self.assertEqual(self.names(), ["kernel-cachyos-7.2.9-r1.exheres-0"])
@@ -187,10 +187,10 @@ class KernelUpdates(unittest.TestCase):
         self.assertIn('SLOT="0"', revised)
         self.assertIn("a" * 64, revised)
         self.assertIn("b" * 64, revised)
-        found, problems = updater.recipes(self.root)
+        found, problems = common.recipes(self.root)
         self.assertEqual(problems, [])
         self.assertEqual(found["sys-kernel/kernel-cachyos"], "7.2.9-r1")
-        self.assertEqual(updater.kernel_release(self.root, "7.2.9-r1"), "7.2.9-2")
+        self.assertEqual(kernel_mod.kernel_release(self.root, "7.2.9-r1"), "7.2.9-2")
 
     def test_next_pkgrel_and_new_version(self):
         self.run_update("7.2.9-2")
@@ -206,33 +206,33 @@ class KernelUpdates(unittest.TestCase):
         failures = (("7.2.9-3", None), ("7.2.9-2", "download"),
                     ("7.2.9-2", "hash"), ("7.2.9-2", "inspect"))
         for version, error in failures:
-            with self.subTest(version=version, error=error), self.assertRaises(updater.UpdateError):
+            with self.subTest(version=version, error=error), self.assertRaises(common.UpdateError):
                 self.run_update(version, error)
             self.assertEqual(self.names(), before)
 
     def test_duplicate_and_legacy_slot_are_rejected(self):
         old = self.recipe("7.2.8", TEMPLATE)
-        found, problems = updater.recipes(self.root)
+        found, problems = common.recipes(self.root)
         self.assertIn("keep only one kernel-cachyos recipe", problems)
         self.assertIn("sys-kernel/kernel-cachyos", found)
-        with patch.object(updater, "published_release") as published, self.assertRaises(updater.UpdateError):
-            updater.update(self.root)
+        with patch.object(kernel_mod, "published_release") as published, self.assertRaises(common.UpdateError):
+            kernel_mod.update(self.root)
         published.assert_not_called()
         old.unlink()
         current = self.package / "kernel-cachyos-7.2.9.exheres-0"
         current.write_text(TEMPLATE.replace('SLOT="0"', 'SLOT="${PV}"'))
-        with patch.object(updater, "published_release") as published, self.assertRaises(updater.UpdateError):
-            updater.update(self.root)
+        with patch.object(kernel_mod, "published_release") as published, self.assertRaises(common.UpdateError):
+            kernel_mod.update(self.root)
         published.assert_not_called()
         self.assertEqual(self.names(), ["kernel-cachyos-7.2.9.exheres-0"])
 
     def test_bad_index_response_preserves_recipes(self):
         before = self.names()
         from urllib.error import HTTPError
-        failure = HTTPError(updater.INDEX, 404, "missing", {}, None)
-        with patch.object(updater.urllib.request, "urlopen", side_effect=failure):
-            with self.assertRaises(updater.UpdateError):
-                updater.update(self.root)
+        failure = HTTPError(kernel_mod.INDEX, 404, "missing", {}, None)
+        with patch.object(kernel_mod.urllib.request, "urlopen", side_effect=failure):
+            with self.assertRaises(common.UpdateError):
+                kernel_mod.update(self.root)
         self.assertEqual(self.names(), before)
 
     def test_repository_index_selects_matching_release(self):
@@ -258,21 +258,21 @@ class KernelUpdates(unittest.TestCase):
             (headers, "7.2.9-2", entry(headers, "7.2.9-2", "b" * 64)),
             (kernel, "7.2.10-1", entry(kernel, "7.2.10-1")),
         ]
-        with patch.object(updater.urllib.request, "urlopen", return_value=io.BytesIO(index(items))):
-            self.assertEqual(updater.published_release(), ("7.2.9-2", {kernel: "a" * 64, headers: "b" * 64}))
+        with patch.object(kernel_mod.urllib.request, "urlopen", return_value=io.BytesIO(index(items))):
+            self.assertEqual(kernel_mod.published_release(), ("7.2.9-2", {kernel: "a" * 64, headers: "b" * 64}))
         items.append((headers, "7.2.10-1", entry(headers, "7.2.10-1", "b" * 64)))
-        with patch.object(updater.urllib.request, "urlopen", return_value=io.BytesIO(index(items))):
-            self.assertEqual(updater.published_release()[0], "7.2.10-1")
-        with patch.object(updater.urllib.request, "urlopen", return_value=io.BytesIO(index(items[:1]))):
-            with self.assertRaises(updater.UpdateError):
-                updater.published_release()
+        with patch.object(kernel_mod.urllib.request, "urlopen", return_value=io.BytesIO(index(items))):
+            self.assertEqual(kernel_mod.published_release()[0], "7.2.10-1")
+        with patch.object(kernel_mod.urllib.request, "urlopen", return_value=io.BytesIO(index(items[:1]))):
+            with self.assertRaises(common.UpdateError):
+                kernel_mod.published_release()
         items[-1] = (headers, "7.2.10-1", entry(headers, "7.2.10-1", filename="wrong.pkg.tar.zst"))
-        with patch.object(updater.urllib.request, "urlopen", return_value=io.BytesIO(index(items))):
-            with self.assertRaises(updater.UpdateError):
-                updater.published_release()
-        with patch.object(updater.urllib.request, "urlopen", return_value=io.BytesIO(b"<html>placeholder</html>")):
-            with self.assertRaises(updater.UpdateError):
-                updater.published_release()
+        with patch.object(kernel_mod.urllib.request, "urlopen", return_value=io.BytesIO(index(items))):
+            with self.assertRaises(common.UpdateError):
+                kernel_mod.published_release()
+        with patch.object(kernel_mod.urllib.request, "urlopen", return_value=io.BytesIO(b"<html>placeholder</html>")):
+            with self.assertRaises(common.UpdateError):
+                kernel_mod.published_release()
 
     def test_archive_metadata_and_paths(self):
         def archive(name, unsafe=False):
@@ -298,12 +298,12 @@ class KernelUpdates(unittest.TestCase):
             path.write_bytes(subprocess.run(["zstd", "-cq"], input=raw.getvalue(), stdout=subprocess.PIPE, check=True).stdout)
             return path
 
-        updater.inspect_archive(archive("linux-cachyos-eevdf-lto"), "linux-cachyos-eevdf-lto", "7.2.9-2")
-        updater.inspect_archive(archive("linux-cachyos-eevdf-lto-headers"), "linux-cachyos-eevdf-lto-headers", "7.2.9-2")
-        with self.assertRaises(updater.UpdateError):
-            updater.inspect_archive(archive("linux-cachyos-eevdf-lto", unsafe=True), "linux-cachyos-eevdf-lto", "7.2.9-2")
-        with self.assertRaises(updater.UpdateError):
-            updater.inspect_archive(archive("linux-cachyos-eevdf-lto"), "linux-cachyos-eevdf-lto", "7.2.9-3")
+        kernel_mod.inspect_archive(archive("linux-cachyos-eevdf-lto"), "linux-cachyos-eevdf-lto", "7.2.9-2")
+        kernel_mod.inspect_archive(archive("linux-cachyos-eevdf-lto-headers"), "linux-cachyos-eevdf-lto-headers", "7.2.9-2")
+        with self.assertRaises(common.UpdateError):
+            kernel_mod.inspect_archive(archive("linux-cachyos-eevdf-lto", unsafe=True), "linux-cachyos-eevdf-lto", "7.2.9-2")
+        with self.assertRaises(common.UpdateError):
+            kernel_mod.inspect_archive(archive("linux-cachyos-eevdf-lto"), "linux-cachyos-eevdf-lto", "7.2.9-3")
 
     def test_directory_cannot_stand_in_for_required_file(self):
         archive = self.root / "invalid.tar.zst"
@@ -320,8 +320,8 @@ class KernelUpdates(unittest.TestCase):
                 tar.addfile(info)
         import subprocess
         archive.write_bytes(subprocess.run(["zstd", "-cq"], input=raw.getvalue(), stdout=subprocess.PIPE, check=True).stdout)
-        with self.assertRaises(updater.UpdateError):
-            updater.inspect_archive(archive, "linux-cachyos-eevdf-lto", "7.2.9-2")
+        with self.assertRaises(common.UpdateError):
+            kernel_mod.inspect_archive(archive, "linux-cachyos-eevdf-lto", "7.2.9-2")
 
 
 if __name__ == "__main__":

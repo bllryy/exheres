@@ -1,6 +1,33 @@
 [__config__]
 max_concurrency = 8
 
+["sys-auth/polkit"]
+source = "github"
+github = "polkit-org/polkit"
+use_max_tag = true
+include_regex = "[0-9]+"
+
+["virtualization-lib/libvirt"]
+source = "gitlab"
+gitlab = "libvirt/libvirt"
+use_max_tag = true
+include_regex = "v[0-9]+\\.[0-9]+\\.[0-9]+"
+prefix = "v"
+
+["virtualization-lib/libvirt-glib"]
+source = "gitlab"
+gitlab = "libvirt/libvirt-glib"
+use_max_tag = true
+include_regex = "v[0-9]+\\.[0-9]+\\.[0-9]+"
+prefix = "v"
+
+["virtualization-lib/libvirt-python"]
+source = "gitlab"
+gitlab = "libvirt/libvirt-python"
+use_max_tag = true
+include_regex = "v[0-9]+\\.[0-9]+\\.[0-9]+"
+prefix = "v"
+
 ["app-admin/ananicy-cpp"]
 source = "gitlab"
 gitlab = "ananicy-cpp/ananicy-cpp"

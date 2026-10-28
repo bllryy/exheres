@@ -14,6 +14,8 @@ Official origins and pinned baseline bytes live in `scripts/recipe-origins.json`
 
 Kernel updates target `linux-cachyos-eevdf-lto` and matching `linux-cachyos-eevdf-lto-headers` from official CachyOS x86-64-v3 repository. The 6.18.55 LTS recipe remains a fallback and is excluded from automatic variant updates. Package preparation does not install kernels or alter boot configuration.
 
+Updater implementation lives in `scripts/package_updater/`: `checks.py` handles release checks/cache, `kernel.py` handles CachyOS archives, `prepare.py` handles local and official preparation, and `cli.py` handles selection/review. Shared guards live in `common.py`; `scripts/update-packages.py` remains the isolated-mode entry point. Run regressions with `python3 -I -m unittest discover -s tests`.
+
 ## Exheres style
 
 - Follow nearby recipes. Keep the copyright header and group metadata, dependencies, and phases in the same order. Omit fields supplied by an exlib and phases the package does not need.

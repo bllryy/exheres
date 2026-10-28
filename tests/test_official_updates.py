@@ -1,15 +1,15 @@
 import base64
-import importlib.util
 import subprocess
 import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+import sys
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
+from package_updater import common, prepare as prepare_mod, cli
 SCRIPT = Path(__file__).resolve().parents[1] / "scripts/update-packages.py"
-spec = importlib.util.spec_from_file_location("official_updater", SCRIPT)
-u = importlib.util.module_from_spec(spec)
-spec.loader.exec_module(u)
+
 
 
 class OfficialUpdates(unittest.TestCase):
@@ -29,18 +29,18 @@ class OfficialUpdates(unittest.TestCase):
         (self.directory / self.old).write_bytes(self.base)
 
     def plan(self, incoming):
-        with patch.object(u, "official_files", return_value={self.new: incoming}):
-            return u.prepare_official(self.root, "app-misc/test", "2.0", self.origin)
+        with patch.object(prepare_mod, "official_files", return_value={self.new: incoming}):
+            return prepare_mod.prepare_official(self.root, "app-misc/test", "2.0", self.origin)
 
     def test_mirror_update_and_import(self):
         incoming = self.base.replace(b"upstream=old", b"upstream=new")
         plan = self.plan(incoming)
         self.assertEqual((self.directory / self.old).read_bytes(), self.base)
-        u.write_official(plan)
+        prepare_mod.write_official(plan)
         self.assertEqual((self.directory / self.new).read_bytes(), incoming)
         self.assertFalse((self.directory / self.old).exists())
         (self.directory / self.new).unlink()
-        u.write_official(self.plan(incoming))
+        prepare_mod.write_official(self.plan(incoming))
         self.assertEqual((self.directory / self.new).read_bytes(), incoming)
 
     def test_overlay_preserved_and_conflicts_closed(self):
@@ -48,32 +48,32 @@ class OfficialUpdates(unittest.TestCase):
         (self.directory / self.old).write_bytes(local)
         plan = self.plan(self.base.replace(b"upstream=old", b"upstream=new"))
         self.assertIn(b"local=custom", plan[2][self.new])
-        with self.assertRaises(u.PreparationError):
+        with self.assertRaises(common.PreparationError):
             self.plan(self.base.replace(b"local=old", b"local=upstream"))
         self.assertEqual((self.directory / self.old).read_bytes(), local)
 
     def test_edit_after_review_rejected(self):
         plan = self.plan(self.base)
         (self.directory / self.old).write_bytes(b"edited")
-        with self.assertRaises(u.PreparationError):
-            u.write_official(plan)
+        with self.assertRaises(common.PreparationError):
+            prepare_mod.write_official(plan)
         self.assertFalse((self.directory / self.new).exists())
 
     def test_network_failure_no_write(self):
-        with patch.object(u.urllib.request, "build_opener", side_effect=OSError("offline")):
-            with self.assertRaises(u.PreparationError):
-                u.official_files(self.origin, "2.0")
+        with patch.object(prepare_mod.urllib.request, "build_opener", side_effect=OSError("offline")):
+            with self.assertRaises(common.PreparationError):
+                prepare_mod.official_files(self.origin, "2.0")
         self.assertEqual(list(self.directory.iterdir()), [self.directory / self.old])
 
     def test_interactive_cancel(self):
         rows = {"app-misc/test": ("update", "1.0 -> 2.0")}
-        with patch.object(u, "preview", return_value=(rows, False)), patch.object(u, "official_config", return_value={}), patch("builtins.input", return_value=""), patch("builtins.print"), patch.object(u, "prepare_recipe") as prepare:
-            self.assertEqual(u.main(["--interactive"]), 0)
+        with patch.object(cli, "preview", return_value=(rows, False)), patch.object(cli, "official_config", return_value={}), patch("builtins.input", return_value=""), patch("builtins.print"), patch.object(cli, "prepare_recipe") as prepare:
+            self.assertEqual(cli.main(["--interactive"]), 0)
         prepare.assert_not_called()
 
     def test_check_does_not_prepare(self):
-        with patch.object(u, "preview", return_value=({}, False)), patch.object(u, "official_config", return_value={}), patch.object(u, "prepare_recipe") as prepare, patch("builtins.print"):
-            self.assertEqual(u.main(["--check"]), 0)
+        with patch.object(cli, "preview", return_value=({}, False)), patch.object(cli, "official_config", return_value={}), patch.object(cli, "prepare_recipe") as prepare, patch("builtins.print"):
+            self.assertEqual(cli.main(["--check"]), 0)
         prepare.assert_not_called()
 
 
