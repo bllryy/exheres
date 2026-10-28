@@ -93,9 +93,8 @@ pkg_postinst() {
     if [[ ${ROOT} != / ]] || ! exhost --is-native -q; then
         elog "Boot setup skipped for non-native or alternate-root installation."
         elog "On the target system, run: ${retry}"
-    elif ! mountpoint -q /boot || ! command -v kernel-install >/dev/null ||
-        ! command -v dracut >/dev/null; then
-        ewarn "Boot setup skipped: /boot must be mounted and kernel-install and dracut available."
+    elif ! mountpoint -q /boot || ! command -v kernel-install >/dev/null; then
+        ewarn "Boot setup skipped: /boot must be mounted and kernel-install available."
         ewarn "After fixing boot setup, run: ${retry}"
     elif ! kernel-install add "${KERNEL_RELEASE}" "${image}"; then
         ewarn "Boot entry or initramfs creation failed; check output above."

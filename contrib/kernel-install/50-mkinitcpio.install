@@ -1,0 +1,60 @@
+#!/usr/bin/env python3
+"""Generate a staged initrd; kernel-install's later plugins handle boot files."""
+
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+import tempfile
+
+
+def main(args=None):
+    args = sys.argv[1:] if args is None else args
+    if not args:
+        print('50-mkinitcpio.install: missing command', file=sys.stderr)
+        return 1
+    if args[0] != 'add' or os.environ.get('KERNEL_INSTALL_INITRD_GENERATOR') != 'mkinitcpio':
+        return 0
+    if len(args) < 4:
+        print('50-mkinitcpio.install: expected add VERSION ENTRY_DIR KERNEL_IMAGE [INITRD...]',
+              file=sys.stderr)
+        return 1
+    # Supplied initrds are consumed directly by 60-ukify/90-loaderentry.
+    if len(args) > 4 or os.environ.get('KERNEL_INSTALL_IMAGE_TYPE') == 'uki':
+        return 0
+    if os.environ.get('KERNEL_INSTALL_LAYOUT') not in ('bls', 'uki'):
+        return 0
+
+    try:
+        version = args[1]
+        if not re.fullmatch(r'[A-Za-z0-9][A-Za-z0-9._+\-]*', version):
+            raise ValueError('invalid kernel version')
+        if not Path(args[2]).is_absolute() or not Path(args[3]).is_file():
+            raise ValueError('expected absolute entry directory and existing kernel image')
+        staging = Path(os.environ.get('KERNEL_INSTALL_STAGING_AREA', ''))
+        if not staging.is_absolute() or staging == Path('/') or not staging.is_dir():
+            raise ValueError('expected existing absolute KERNEL_INSTALL_STAGING_AREA directory')
+        target = staging / 'initrd'
+        if os.path.lexists(target):
+            raise FileExistsError(f'refusing to replace {target}')
+        # A private directory keeps partial output out of later plugins' initrd* glob.
+        with tempfile.TemporaryDirectory(prefix='.mkinitcpio-', dir=staging) as temporary:
+            output = Path(temporary) / 'initrd'
+            result = subprocess.run(['mkinitcpio', '-k', version, '-g', str(output)], check=False)
+            if result.returncode:
+                # 77 means stop successfully to kernel-install, not generator failure.
+                return result.returncode if 0 < result.returncode < 256 and result.returncode != 77 else 1
+            if output.is_symlink() or not output.is_file() or output.stat().st_size == 0:
+                raise ValueError('mkinitcpio produced no nonempty regular initrd')
+            output.chmod(0o600)
+            # Atomic publication without overwriting another plugin's output.
+            os.link(output, target)
+        return 0
+    except (OSError, ValueError) as error:
+        print(f'50-mkinitcpio.install: {error}', file=sys.stderr)
+        return 1
+
+
+if __name__ == '__main__':
+    sys.exit(main())
