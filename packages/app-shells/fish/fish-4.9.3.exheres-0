@@ -1,0 +1,71 @@
+# Copyright 2026 Gurov <thuggerthugger1@duck.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require cargo [ rust_minimum_version=1.85 ] \
+    github [ user=fish-shell project=fish-shell release=${PV} suffix=tar.xz ]
+
+SUMMARY="A smart and user-friendly command line shell"
+HOMEPAGE="https://fishshell.com/"
+
+LICENCES="GPL-2 LGPL-2 MIT PSF"
+SLOT="0"
+PLATFORMS="~amd64 ~x86"
+MYOPTIONS=""
+
+DEPENDENCIES="
+    build:
+        dev-python/Sphinx
+        virtual/pkg-config
+    build+run:
+        dev-libs/pcre2[>=10.21]
+    suggestion:
+        dev-lang/python:* [[ note = [ Completion generation and the fish_config web interface require Python ] ]]
+"
+
+CARGO_SRC_TEST_PARAMS=(
+    --
+    --skip test_complete
+    --skip test_borrowed_fd_file_does_not_close
+)
+
+src_configure() {
+    cargo_src_configure
+
+    export CARGO_TARGET_DIR="${WORK}/target"
+
+    export PREFIX=/usr
+    export SYSCONFDIR=/etc
+    export DATADIR=/usr/share
+    export BINDIR=/usr/$(exhost --target)/bin
+    export DOCDIR=/usr/share/doc/${PNVR}
+}
+
+src_install() {
+    cargo_src_install
+
+    keepdir /etc/fish/{completions,conf.d,functions}
+    insinto /etc/fish
+    doins etc/config.fish
+    keepdir /usr/share/fish/vendor_{conf,completions,functions}.d
+
+    local manpages="${WORK}/target/fish-docs/man/man1"
+    insinto /usr/share/fish/man/man1
+    local page
+    for page in "${manpages}"/*.1; do
+        [[ ${page##*/} == realpath.1 ]] || doins "${page}"
+    done
+    doman "${manpages}"/fish{,_indent,_key_reader,-doc,-tutorial,-language,-interactive,-terminal-compatibility,-completions,-prompt-tutorial,-for-bash-users,-faq}.1
+
+    edo sed \
+        -e 's|@prefix@|/usr|g' \
+        -e 's|@rel_datadir@|share|g' \
+        -e 's|@rel_completionsdir@|fish/vendor_completions.d|g' \
+        -e 's|@rel_functionsdir@|fish/vendor_functions.d|g' \
+        -e 's|@rel_confdir@|fish/vendor_conf.d|g' \
+        -e "s|@fish_build_version@|${PV}|g" \
+        fish.pc.in > fish.pc
+    insinto /usr/share/pkgconfig
+    doins fish.pc
+
+    dodoc README.rst CHANGELOG.rst COPYING
+}
