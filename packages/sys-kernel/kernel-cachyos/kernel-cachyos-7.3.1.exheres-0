@@ -4,7 +4,7 @@
 SUMMARY="Cachy Sauce Kernel by CachyOS with other patches and improvements kernel and modules"
 HOMEPAGE="https://github.com/CachyOS/linux-cachyos"
 
-MY_RELEASE="${PV}-2"
+MY_RELEASE="${PV}-1"
 MY_KERNEL="linux-cachyos-eevdf-lto-${MY_RELEASE}-x86_64_v3.pkg.tar.zst"
 MY_HEADERS="linux-cachyos-eevdf-lto-headers-${MY_RELEASE}-x86_64_v3.pkg.tar.zst"
 KERNEL_RELEASE="${MY_RELEASE}-cachyos-eevdf-lto"
@@ -55,8 +55,8 @@ src_unpack() {
     local archive checksum expected
     for archive in "${MY_KERNEL}" "${MY_HEADERS}"; do
         case ${archive} in
-            "${MY_KERNEL}") expected=800d6b1e62ecdf8d5fab2ca4abc7f911be2ec23a1f57ae402c3f9c325d6959df ;;
-            "${MY_HEADERS}") expected=d2d55f161619ada3951a9810c1213ecdf0af960ce0c28d5768ade4f0a9b6eb10 ;;
+            "${MY_KERNEL}") expected=c3425572cc59860aa89aeff7e5a79fced6dacaaf82265dc6df8054eb9705ae37 ;;
+            "${MY_HEADERS}") expected=e131819f1f6e38e88329ade6253aac7c90bfdf9215ed2512657bf6eac41911f2 ;;
         esac
         checksum=$(sha256sum "${FETCHEDDIR}/${archive}") || die "Cannot checksum ${archive}"
         [[ ${checksum%% *} == ${expected} ]] || die "CachyOS archive changed: ${archive}"
