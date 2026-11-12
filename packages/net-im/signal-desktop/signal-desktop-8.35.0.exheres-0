@@ -1,0 +1,86 @@
+# Copyright 2026 Lily Goscha <lilygoscha@gmail.com>
+# Distributed under the terms of the GNU General Public License v2
+
+require freedesktop-desktop gtk-icon-cache
+
+SUMMARY="Private messaging from your desktop"
+HOMEPAGE="https://signal.org/"
+DOWNLOADS="https://updates.signal.org/desktop/apt/pool/s/${PN}/${PN}_${PV}_amd64.deb"
+
+LICENCES="AGPL-3"
+SLOT="0"
+PLATFORMS="~amd64"
+MYOPTIONS="
+    ( providers: eudev systemd ) [[ number-selected = exactly-one ]]
+"
+RESTRICT="mirror strip test"
+
+DEPENDENCIES="
+    run:
+        dev-libs/at-spi2-core
+        dev-libs/expat
+        dev-libs/glib:2
+        dev-libs/libsecret
+        dev-libs/nspr
+        dev-libs/nss
+        media-sound/pulseaudio
+        net-print/cups
+        sys-apps/dbus
+        providers:eudev? ( sys-apps/eudev )
+        providers:systemd? ( sys-apps/systemd )
+        sys-sound/alsa-lib
+        x11-apps/xdg-utils
+        x11-dri/mesa
+        x11-libs/cairo
+        x11-libs/gtk+:3
+        x11-libs/libnotify
+        x11-libs/libX11
+        x11-libs/libXScrnSaver
+        x11-libs/libXcomposite
+        x11-libs/libXdamage
+        x11-libs/libXext
+        x11-libs/libXfixes
+        x11-libs/libXrandr
+        x11-libs/libXtst
+        x11-libs/libxcb
+        x11-libs/libxkbcommon
+        x11-libs/pango
+"
+
+WORK="${WORKBASE}"
+
+pkg_setup() {
+    exdirectory --allow /opt
+}
+
+src_unpack() {
+    default
+    unpack ./data.tar.xz
+}
+
+src_install() {
+    edo mkdir -p "${IMAGE}/opt/Signal"
+    edo cp -r opt/Signal/. "${IMAGE}/opt/Signal/"
+
+    dodir /usr/$(exhost --target)/bin
+    dosym ../../../opt/Signal/signal-desktop /usr/$(exhost --target)/bin/${PN}
+
+    insinto /usr/share/applications
+    doins usr/share/applications/${PN}.desktop
+
+    local size
+    for size in 16 24 32 48 64 128 256 512 1024; do
+        insinto /usr/share/icons/hicolor/${size}x${size}/apps
+        doins usr/share/icons/hicolor/${size}x${size}/apps/${PN}.png
+    done
+}
+
+pkg_postinst() {
+    freedesktop-desktop_pkg_postinst
+    gtk-icon-cache_pkg_postinst
+}
+
+pkg_postrm() {
+    freedesktop-desktop_pkg_postrm
+    gtk-icon-cache_pkg_postrm
+}

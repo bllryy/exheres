@@ -264,6 +264,13 @@ source = "aur"
 aur = "viber"
 strip_release = true
 
+["net-im/signal-desktop"]
+source = "github"
+github = "signalapp/Signal-Desktop"
+use_max_release = true
+include_regex = "v[0-9]+\\.[0-9]+\\.[0-9]+"
+prefix = "v"
+
 ["net-im/vesktop"]
 source = "github"
 github = "Vencord/Vesktop"
