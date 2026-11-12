@@ -1,6 +1,6 @@
 # Agent guidelines
 
-This repository contains Exherbo exheres maintained by Gurov. Follow nearby recipes and Exherbo packaging conventions. Keep changes small and focused.
+This repository contains Exherbo exheres maintained by bllry. Follow nearby recipes and Exherbo packaging conventions. Keep changes small and focused.
 
 ## AI use
 
