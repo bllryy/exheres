@@ -1,6 +1,6 @@
 # Contributing
 
-This is a personal Exherbo repository for packages I use. Issues and pull requests are welcome on [Codeberg](https://codeberg.org/Gurov/gurov). Open an issue before proposing a new package. New contributors must prepare contributions without AI assistance; see [AGENTS.md](AGENTS.md) for the full policy.
+This is a personal Exherbo repository for packages I use. Issues and pull requests are welcome on [Codeberg](https://codeberg.org/bllry/exheres). Open an issue before proposing a new package. New contributors must prepare contributions without AI assistance; see [AGENTS.md](AGENTS.md) for the full policy.
 
 Keep changes focused. Verify versions, source URLs, licences, and dependencies against upstream. When equivalent Linux binaries are available as `.deb` and `.rpm`, prefer the `.deb` after checking their contents. Put patches in the package's `files/` directory and explain why they're needed.
 
@@ -28,8 +28,8 @@ Before opening a pull request:
 1. Check metadata and preview dependency resolution for the package you changed:
 
    ```sh
-   cave show category/package::gurov
-   cave resolve category/package::gurov
+   cave show category/package::bllry
+   cave resolve category/package::bllry
    ```
 
 2. Build and test what changed when possible. Report failed or skipped checks.

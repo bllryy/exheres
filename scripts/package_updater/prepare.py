@@ -65,7 +65,7 @@ def download_checksum(url):
     try:
         with tempfile.TemporaryDirectory(prefix="package-checksum-") as temporary:
             destination = Path(temporary) / "archive"
-            with opener.open(urllib.request.Request(url, headers={"User-Agent": "gurov-package-updater/1.0"}), timeout=30) as response:
+            with opener.open(urllib.request.Request(url, headers={"User-Agent": "bllry-package-updater/1.0"}), timeout=30) as response:
                 if not safe_download_url(response.geturl(), urllib.parse.urlsplit(url).hostname):
                     raise PreparationError("Unexpected checksum download origin")
                 length = response.headers.get("Content-Length") if hasattr(response, "headers") else None
@@ -108,7 +108,7 @@ def official_files(origin, version):
         raise PreparationError("Invalid official repository")
     url = repository + "/-/archive/master/source.tar.gz"
     try:
-        with tempfile.TemporaryDirectory(prefix="gurov-official-") as temporary:
+        with tempfile.TemporaryDirectory(prefix="bllry-official-") as temporary:
             archive = Path(temporary) / "source.tar.gz"
             opener = urllib.request.build_opener(ChecksumRedirect(url))
             with opener.open(url, timeout=30) as response, archive.open("xb") as output:
@@ -156,7 +156,7 @@ def merge_recipe(base, local, incoming):
         return local
     if None in (base, local, incoming) or b"\0" in base + local + incoming:
         raise PreparationError("Official overlay add/delete or binary conflict")
-    with tempfile.TemporaryDirectory(prefix="gurov-merge-") as temporary:
+    with tempfile.TemporaryDirectory(prefix="bllry-merge-") as temporary:
         paths = [Path(temporary) / name for name in ("local", "base", "incoming")]
         for path, data in zip(paths, (local, base, incoming)):
             path.write_bytes(data)

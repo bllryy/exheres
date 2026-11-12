@@ -4,12 +4,12 @@ Supplemental, third-party [Exherbo](https://www.exherbo.org/) repository for pac
 
 ## Add the repository
 
-Create `/etc/paludis/repositories/gurov.conf`:
+Create `/etc/paludis/repositories/bllry.conf`:
 
 ```ini
 format = e
 location = ${root}/var/db/paludis/repositories/bllry
-sync = git+https://codeberg.org/Gurov/exheres.git
+sync = git+https://codeberg.org/bllry/exheres.git
 sync_options = --branch=main
 ```
 
